@@ -1,0 +1,31 @@
+# Byte-code files
+*.pyc
+__pycache__/
+
+#.env
+.env
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Editor/IDE specific files
+.idea/  # PyCharm
+.vscode/ # VSCode
+*.sublime-project
+*.sublime-workspace
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# OS generated files
+.DS_Store # macOS
+Thumbs.db # Windows
+
+# Logs and temporary files
+*.log
+*.tmp

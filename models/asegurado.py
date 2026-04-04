@@ -1,0 +1,30 @@
+"""Modelo de asegurado."""
+
+import uuid
+from datetime import datetime
+from sqlmodel import SQLModel, Field as SqlModelField
+
+
+class Asegurado(SQLModel, table=True):
+    id_asegurado: str = SqlModelField(
+        default_factory=lambda: str(uuid.uuid4()), primary_key=True, max_length=36
+    )
+    nombre: str = SqlModelField(max_length=100)
+    apellido_paterno: str = SqlModelField(max_length=100)
+    apellido_materno: str = SqlModelField(max_length=100)
+    rfc: str = SqlModelField(unique=True, max_length=20)
+    correo: str | None = SqlModelField(default=None, max_length=255)
+    celular: str | None = SqlModelField(default=None, max_length=10)
+    calle: str = SqlModelField(max_length=255)
+    numero_exterior: str = SqlModelField(max_length=50)
+    numero_interior: str | None = SqlModelField(default=None, max_length=50)
+    colonia: str = SqlModelField(max_length=100)
+    municipio: str = SqlModelField(max_length=100)
+    estado: str = SqlModelField(max_length=100)
+    codigo_postal: str = SqlModelField(max_length=20)
+    id_agente_responsable: str | None = SqlModelField(
+        default=None, foreign_key="agente.id_agente", max_length=36
+    )
+    activo: bool = SqlModelField(default=True)
+    created_at: datetime | None = SqlModelField(default_factory=datetime.utcnow)
+    updated_at: datetime | None = SqlModelField(default_factory=datetime.utcnow)

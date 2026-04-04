@@ -1,0 +1,4 @@
+flet==0.80.5
+sqlmodel==0.0.8
+PyMySQL==1.1.2
+python-dotenv==1.2.2
