@@ -1,17 +1,23 @@
-"""Servicio de autenticación para el login básico."""
+"""Servicio de autenticación de agentes."""
 
-from sqlmodel import select
-from services.database import create_session
-from models.agente import Agente
+from repositories.agente_repository import AgenteRepository
+from services.security import verify_password
+from services.validators import validar_requerido
+
+
+def login_agente(clave_agente: str, password: str):
+    validar_requerido(clave_agente, "clave_agente")
+    validar_requerido(password, "password")
+
+    agente = AgenteRepository.get_agente_by_clave(clave_agente)
+    if not agente or not agente.activo:
+        return None
+
+    if not (verify_password(password, agente.password) or password == agente.password):
+        return None
+    return agente
 
 
 def authenticate(clave_agente: str, password: str) -> bool:
-    """Valida las credenciales de un agente contra la base de datos."""
-    with create_session() as session:
-        statement = (
-            select(Agente)
-            .where(Agente.clave_agente == clave_agente)
-            .where(Agente.password == password)
-            .where(Agente.activo == True)
-        )
-        return session.exec(statement).first() is not None
+    """Compatibilidad con el flujo actual de login en Flet."""
+    return login_agente(clave_agente, password) is not None

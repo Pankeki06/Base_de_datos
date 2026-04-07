@@ -1,9 +1,21 @@
 """Controlador de autenticación y login."""
 
 import flet as ft
-from views.login_view import create_login_view as login_view
-from services.auth_service import authenticate
+from services.auth_service import authenticate, login_agente
 from views.dashboard_view import create_dashboard_view
+from views.login_view import create_login_view as login_view
+
+
+class AuthController:
+    @staticmethod
+    def login(clave_agente: str, password: str) -> dict:
+        try:
+            agente = login_agente(clave_agente, password)
+            if not agente:
+                return {"ok": False, "error": "Clave o contraseña incorrecta."}
+            return {"ok": True, "data": agente}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
 
 def create_login_view(page: ft.Page) -> ft.Column:

@@ -1,6 +1,5 @@
 """Modelo de asegurado."""
 
-import uuid
 from datetime import datetime
 from sqlmodel import SQLModel, Field as SqlModelField
 
@@ -20,10 +19,8 @@ class Asegurado(SQLModel, table=True):
     municipio: str = SqlModelField(max_length=100)
     estado: str = SqlModelField(max_length=100)
     codigo_postal: str = SqlModelField(max_length=20)
-    id_agente_responsable: str | None = SqlModelField(
-        default=None, foreign_key="agente.id_agente", max_length=36
-    )
+    id_agente_responsable: int | None = SqlModelField(default=None, foreign_key="agente.id_agente")
     activo: bool = SqlModelField(default=True)
-    created_at: datetime | None = SqlModelField(default_factory=datetime.utcnow)
-    updated_at: datetime | None = SqlModelField(default_factory=datetime.utcnow)
+    created_at: datetime | None = SqlModelField(default_factory=datetime.now)
+    updated_at: datetime | None = SqlModelField(default_factory=datetime.now)
     deleted_at: datetime | None = SqlModelField(default=None)
