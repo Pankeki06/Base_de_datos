@@ -5,7 +5,7 @@ from sqlmodel import SQLModel, Field as SqlModelField
 
 
 class Seguimiento(SQLModel, table=True):
-    id_seguimiento: int = SqlModelField(default=None, primary_key=True)
+    id_seguimiento: int | None = SqlModelField(default=None, primary_key=True)
     id_asegurado: int = SqlModelField(foreign_key="asegurado.id_asegurado")
     id_agente: int = SqlModelField(foreign_key="agente.id_agente")
     tipo_contacto: str = SqlModelField(max_length=20)

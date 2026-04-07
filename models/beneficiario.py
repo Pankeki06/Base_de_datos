@@ -5,7 +5,7 @@ from sqlmodel import SQLModel, Field as SqlModelField
 
 
 class Beneficiario(SQLModel, table=True):
-    id_beneficiario: int = SqlModelField(default=None, primary_key=True)
+    id_beneficiario: int | None = SqlModelField(default=None, primary_key=True)
     id_asegurado: int = SqlModelField(foreign_key="asegurado.id_asegurado")
     nombre_completo: str = SqlModelField(max_length=255)
     parentesco: str = SqlModelField(max_length=50)
