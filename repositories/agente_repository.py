@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from sqlmodel import select
-
 from config.database import create_session
 from models.agente import Agente
 
@@ -61,7 +60,6 @@ class AgenteRepository:
             if not agente:
                 return False
             agente.deleted_at = datetime.now()
-            agente.activo = False
             agente.updated_at = datetime.now()
             session.add(agente)
             session.commit()

@@ -10,7 +10,7 @@ def login_agente(clave_agente: str, password: str):
     validar_requerido(password, "password")
 
     agente = AgenteRepository.get_agente_by_clave(clave_agente)
-    if not agente or not agente.activo:
+    if not agente:
         return None
 
     if not (verify_password(password, agente.password) or password == agente.password):

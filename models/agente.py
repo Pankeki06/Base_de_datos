@@ -14,7 +14,6 @@ class Agente(SQLModel, table=True):
     telefono: str | None = SqlModelField(default=None, max_length=20)
     rol: str = SqlModelField(max_length=10)
     password: str = SqlModelField(max_length=255)
-    activo: bool = SqlModelField(default=True)
     created_at: datetime | None = SqlModelField(default_factory=datetime.now)
     updated_at: datetime | None = SqlModelField(default_factory=datetime.now)
     deleted_at: datetime | None = SqlModelField(default=None)

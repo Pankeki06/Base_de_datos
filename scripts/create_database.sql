@@ -100,3 +100,29 @@ CREATE TABLE IF NOT EXISTS sesion (
     fin_sesion DATETIME,
     FOREIGN KEY (id_agente) REFERENCES agente(id_agente) ON DELETE CASCADE
 );
+
+INSERT IGNORE INTO agente (
+    id_agente,
+    clave_agente,
+    nombre,
+    apellido_paterno,
+    apellido_materno,
+    correo,
+    telefono,
+    rol,
+    password,
+    created_at,
+    updated_at
+) VALUES (
+    UUID(),
+    'admin1',
+    'Administrador',
+    'Sistema',
+    'Demo',
+    'admin@seguros.com',
+    '5512345678',
+    'admin',
+    '1234',
+    NOW(),
+    NOW()
+);
