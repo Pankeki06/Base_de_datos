@@ -102,7 +102,6 @@ CREATE TABLE IF NOT EXISTS sesion (
 );
 
 INSERT IGNORE INTO agente (
-    id_agente,
     clave_agente,
     nombre,
     apellido_paterno,
@@ -114,7 +113,6 @@ INSERT IGNORE INTO agente (
     created_at,
     updated_at
 ) VALUES (
-    UUID(),
     'admin1',
     'Administrador',
     'Sistema',
