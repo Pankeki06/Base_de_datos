@@ -6,9 +6,7 @@ from sqlmodel import SQLModel, Field as SqlModelField
 
 
 class Beneficio(SQLModel, table=True):
-    id_beneficio: str = SqlModelField(
-        default_factory=lambda: str(uuid.uuid4()), primary_key=True, max_length=36
-    )
+    id_beneficio: int = SqlModelField(default=None, primary_key=True)
     id_poliza: str = SqlModelField(foreign_key="poliza.id_poliza", max_length=36)
     nombre_beneficio: str = SqlModelField(max_length=255)
     descripcion: str = SqlModelField(max_length=500)

@@ -64,7 +64,7 @@ pip install -r requirements.txt
 
 ### 4. Configurar variables de entorno
 
-Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido: ya existe un ejemplo que pueden copiar y pegar 
 
 ```env
 DB_USER=root
@@ -76,11 +76,8 @@ DB_NAME=aseguradora
 
 ### 5. Crear la base de datos
 
-Ejecuta el script SQL para crear la base de datos y todas las tablas:
+Ejecuta el script SQL en workbebch para crear la base de datos y todas las tablas:
 
-```powershell
-mysql -u root -p < scripts/create_database.sql
-```
 
 ---
 
@@ -99,7 +96,6 @@ python main.py
 | Clave agente | `admin1`   |
 | Contraseña   | `1234` |
 
-> ⚠️ Se recomienda cambiar estas credenciales antes de usar la aplicación en un entorno de producción.
 
 ---
 

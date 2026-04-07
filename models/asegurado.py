@@ -6,9 +6,7 @@ from sqlmodel import SQLModel, Field as SqlModelField
 
 
 class Asegurado(SQLModel, table=True):
-    id_asegurado: str = SqlModelField(
-        default_factory=lambda: str(uuid.uuid4()), primary_key=True, max_length=36
-    )
+    id_asegurado: int = SqlModelField(default=None, primary_key=True)
     nombre: str = SqlModelField(max_length=100)
     apellido_paterno: str = SqlModelField(max_length=100)
     apellido_materno: str = SqlModelField(max_length=100)
@@ -28,3 +26,4 @@ class Asegurado(SQLModel, table=True):
     activo: bool = SqlModelField(default=True)
     created_at: datetime | None = SqlModelField(default_factory=datetime.utcnow)
     updated_at: datetime | None = SqlModelField(default_factory=datetime.utcnow)
+    deleted_at: datetime | None = SqlModelField(default=None)
