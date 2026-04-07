@@ -1,7 +1,8 @@
 """Punto de entrada de la aplicación."""
 
 import flet as ft
-from controllers.auth_controller import create_login_view
+from views.login_view import create_login_view
+
 
 
 def main(page: ft.Page) -> None:
@@ -10,7 +11,6 @@ def main(page: ft.Page) -> None:
     page.window_height = 650
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
     page.add(create_login_view(page))
-
 
 if __name__ == "__main__":
     ft.run(main)
