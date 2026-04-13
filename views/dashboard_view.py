@@ -1,23 +1,27 @@
 """Dashboard principal con paginación básica."""
-
 import flet as ft
 
+# Importamos la nueva vista que crearemos
+from views.asegurados_view import create_asegurados_view
 
 def create_dashboard_view(page: ft.Page) -> ft.Column:
     tab_bar = ft.TabBar(
         tabs=[
-            ft.Tab(label="Parte 1"),
+            ft.Tab(label="Gestión de Asegurados"), # Cambiamos el nombre
             ft.Tab(label="Parte 2"),
             ft.Tab(label="Parte 3"),
+            ft.Tab(label="Parte 4")
         ],
         scrollable=False,
     )
 
     tab_view = ft.TabBarView(
         controls=[
-            ft.Column([ft.Text("Parte 1", size=24)], expand=1),
+            # Llamamos a nuestra nueva vista aquí y le pasamos la página
+            create_asegurados_view(page), 
             ft.Column([ft.Text("Parte 2", size=24)], expand=1),
             ft.Column([ft.Text("Parte 3", size=24)], expand=1),
+            ft.Column([ft.Text("Parte 4", size=24)], expand=1),
         ],
         expand=1,
     )
