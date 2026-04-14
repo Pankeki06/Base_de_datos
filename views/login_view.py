@@ -23,12 +23,12 @@ def create_login_view(page: ft.Page) -> ft.Column:
     validation_text = ft.Text(color="red")
 
     def on_login(event: ft.ControlEvent) -> None:
-        # La vista llama al controller con los datos
         result = AuthController.login(clave_agente.value, password.value)
 
         if result["ok"]:
+            agente = result.get("data")          # ← datos del agente
             page.controls.clear()
-            page.add(create_dashboard_view(page))
+            page.add(create_dashboard_view(page, agente=agente))
         else:
             validation_text.value = result["error"]
             page.update()
