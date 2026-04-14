@@ -1,4 +1,4 @@
-"""Dashboard principal con paginación básica."""
+
 import flet as ft
 
 from views.home_view import create_home_view
