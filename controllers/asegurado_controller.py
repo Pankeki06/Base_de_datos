@@ -29,6 +29,20 @@ class AseguradoController:
             return {"ok": False, "error": str(e)}
 
     @staticmethod
+    def search_asegurados(query: str) -> dict:
+        try:
+            return {"ok": True, "data": AseguradoService.search(query)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def get_asegurados_by_agente(id_agente: int) -> dict:
+        try:
+            return {"ok": True, "data": AseguradoService.get_by_agente(id_agente)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
     def update_asegurado(id_asegurado: int, data: dict) -> dict:
         try:
             entity = AseguradoService.update(id_asegurado, data)

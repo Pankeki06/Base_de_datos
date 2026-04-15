@@ -29,6 +29,13 @@ class PolizaController:
             return {"ok": False, "error": str(e)}
 
     @staticmethod
+    def get_polizas_by_asegurado(id_asegurado: int) -> dict:
+        try:
+            return {"ok": True, "data": PolizaService.get_by_asegurado(id_asegurado)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
     def update_poliza(id_poliza: int, data: dict) -> dict:
         try:
             entity = PolizaService.update(id_poliza, data)

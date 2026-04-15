@@ -1,0 +1,501 @@
+"""Dashboard principal con buscador y últimos asegurados contactados."""
+
+from __future__ import annotations
+
+import flet as ft
+from controllers.asegurado_controller import AseguradoController
+from controllers.poliza_controller import PolizaController
+from controllers.seguimiento_controller import SeguimientoController
+from services.session_manager import cerrar_sesion, obtener_agente
+
+# ─── Colores ───────────────────────────────────────────────────────────────────
+_BG = "#0F1117"
+_SIDEBAR = "#13161F"
+_CARD = "#1A1D27"
+_CARD2 = "#1E2235"
+_ACCENT = "#00C17C"
+_TEXT = "#E8EAF0"
+_MUTED = "#6B7280"
+_BORDER = "#2D3148"
+_BADGE = {
+    "Vida": ("#0D3B2E", "#00C17C"),
+    "Autos": ("#1A1A3E", "#6366F1"),
+    "Hogar": ("#2D1F0A", "#F59E0B"),
+    "activa": ("#0D3B2E", "#00C17C"),
+    "vencida": ("#3B1A1A", "#EF4444"),
+    "cancelada": ("#2D2D2D", "#9CA3AF"),
+}
+_TIPO_COLOR = {
+    "Vida": ("#00C17C", "#0D3B2E"),
+    "Autos": ("#6366F1", "#1A1A3E"),
+    "Hogar": ("#F59E0B", "#2D1F0A"),
+    "Salud": ("#06B6D4", "#0A2233"),
+}
+
+
+def _tipo_badge(tipo: str) -> ft.Container:
+    bg, fg = _TIPO_COLOR.get(tipo, ("#9CA3AF", "#1A1D27"))
+    return ft.Container(
+        content=ft.Text(tipo, size=11, weight=ft.FontWeight.W_600, color=fg),
+        bgcolor=bg,
+        padding=ft.padding.symmetric(horizontal=8, vertical=3),
+        border_radius=20,
+    )
+
+
+def _sidebar(navigate, agente_nombre: str) -> ft.Container:
+    nav_items = [
+        ("Dashboard", ft.Icons.DASHBOARD_ROUNDED, "/dashboard"),
+        ("Clientes", ft.Icons.PERSON_SEARCH_ROUNDED, None),
+        ("Pólizas", ft.Icons.SHIELD_ROUNDED, None),
+        ("Siniestros", ft.Icons.WARNING_AMBER_ROUNDED, None),
+        ("Ajustes", ft.Icons.SETTINGS_ROUNDED, None),
+    ]
+
+    def nav_btn(label: str, icon, route, active: bool = False) -> ft.Container:
+        return ft.Container(
+            content=ft.Row(
+                [
+                    ft.Icon(icon, size=18, color=_ACCENT if active else _MUTED),
+                    ft.Text(label, size=14, color=_TEXT if active else _MUTED,
+                            weight=ft.FontWeight.W_600 if active else ft.FontWeight.NORMAL),
+                ],
+                spacing=10,
+            ),
+            padding=ft.padding.symmetric(horizontal=16, vertical=10),
+            border_radius=8,
+            bgcolor=ft.Colors.with_opacity(0.08, _ACCENT) if active else ft.Colors.TRANSPARENT,
+            on_click=(lambda e, r=route: navigate(r)) if route else None,
+            ink=True,
+        )
+
+    def on_logout(e):
+        cerrar_sesion()
+        navigate("/login")
+
+    return ft.Container(
+        content=ft.Column(
+            [
+                ft.Container(height=24),
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text("The Architectural Trust", size=14,
+                                weight=ft.FontWeight.BOLD, color=_TEXT),
+                        ft.Text("Insurance Portal", size=11, color=_ACCENT),
+                    ], spacing=2),
+                    padding=ft.padding.symmetric(horizontal=16),
+                ),
+                ft.Container(height=28),
+                *[nav_btn(l, ic, r, active=(r == "/dashboard")) for l, ic, r in nav_items],
+                ft.Container(expand=True),
+                ft.Container(
+                    content=ft.ElevatedButton(
+                        content=ft.Row(
+                            [ft.Icon(ft.Icons.LOGOUT_ROUNDED, size=16),
+                             ft.Text("Logout", size=13)],
+                            spacing=6,
+                        ),
+                        style=ft.ButtonStyle(
+                            bgcolor={ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT},
+                            color={ft.ControlState.DEFAULT: _MUTED},
+                            overlay_color=ft.Colors.with_opacity(0.06, "#FF0000"),
+                            side={ft.ControlState.DEFAULT: ft.BorderSide(1, _BORDER)},
+                            shape=ft.RoundedRectangleBorder(radius=8),
+                        ),
+                        on_click=on_logout,
+                    ),
+                    padding=ft.padding.symmetric(horizontal=12, vertical=16),
+                ),
+                ft.Container(
+                    content=ft.ElevatedButton(
+                        content=ft.Row(
+                            [ft.Icon(ft.Icons.ADD_ROUNDED, size=16),
+                             ft.Text("New Policy", size=13)],
+                            spacing=6,
+                        ),
+                        style=ft.ButtonStyle(
+                            bgcolor={ft.ControlState.DEFAULT: _ACCENT},
+                            color={ft.ControlState.DEFAULT: "#000000"},
+                            shape=ft.RoundedRectangleBorder(radius=8),
+                        ),
+                        on_click=lambda e: navigate("/asegurado/nuevo"),
+                    ),
+                    padding=ft.padding.only(left=12, right=12, bottom=20),
+                ),
+            ],
+            spacing=2,
+            expand=True,
+        ),
+        width=190,
+        bgcolor=_SIDEBAR,
+        border=ft.border.only(right=ft.BorderSide(1, _BORDER)),
+    )
+
+
+class DashboardView:
+    def __init__(self, page: ft.Page, navigate) -> None:
+        self._page = page
+        self._navigate = navigate
+        self._agente = obtener_agente()
+        self._resultados_ref = ft.Ref[ft.Column]()
+        self._contador_ref = ft.Ref[ft.Text]()
+        self._recientes_ref = ft.Ref[ft.Column]()
+
+    def build(self) -> ft.Control:
+        agente = self._agente
+        nombre_agente = f"{agente.nombre} {agente.apellido_paterno}" if agente else "Agente"
+
+        sidebar = _sidebar(self._navigate, nombre_agente)
+        main_content = self._build_main(nombre_agente)
+
+        return ft.Container(
+            content=ft.Row(
+                [sidebar, main_content],
+                spacing=0,
+                expand=True,
+            ),
+            expand=True,
+            bgcolor=_BG,
+        )
+
+    def _build_main(self, nombre_agente: str) -> ft.Container:
+        # ── Barra superior
+        topbar = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Text(f"Bienvenido, {nombre_agente.split()[0]}",
+                            size=18, weight=ft.FontWeight.BOLD, color=_TEXT),
+                    ft.Container(expand=True),
+                    ft.Icon(ft.Icons.NOTIFICATIONS_NONE_ROUNDED, color=_MUTED, size=22),
+                    ft.Icon(ft.Icons.HISTORY_ROUNDED, color=_MUTED, size=22),
+                    ft.Container(width=8),
+                    ft.CircleAvatar(
+                        content=ft.Text(nombre_agente[0].upper(), size=14, color=_ACCENT),
+                        bgcolor=ft.Colors.with_opacity(0.15, _ACCENT),
+                        radius=18,
+                    ),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=12,
+            ),
+            padding=ft.padding.symmetric(horizontal=28, vertical=16),
+            border=ft.border.only(bottom=ft.BorderSide(1, _BORDER)),
+        )
+
+        # ── Buscador
+        search_field = ft.TextField(
+            hint_text="Buscar clientes por nombre, RFC o número de póliza...",
+            prefix_icon=ft.Icons.SEARCH_ROUNDED,
+            border_color=_BORDER,
+            focused_border_color=_ACCENT,
+            text_style=ft.TextStyle(color=_TEXT),
+            hint_style=ft.TextStyle(color=_MUTED),
+            bgcolor=_CARD,
+            cursor_color=_ACCENT,
+            expand=True,
+            height=46,
+            content_padding=ft.padding.symmetric(horizontal=16, vertical=10),
+            on_submit=lambda e: self._on_search(search_field),
+        )
+
+        btn_buscar = ft.ElevatedButton(
+            content=ft.Text("Buscar", size=14),
+            height=46,
+            style=ft.ButtonStyle(
+                bgcolor={ft.ControlState.DEFAULT: _ACCENT},
+                color={ft.ControlState.DEFAULT: "#000000"},
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.padding.symmetric(horizontal=20),
+            ),
+            on_click=lambda e: self._on_search(search_field),
+        )
+
+        buscar_row = ft.Row(
+            [search_field, btn_buscar],
+            spacing=12,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+        # ── Resultados
+        resultados_col = ft.Column(ref=self._resultados_ref, spacing=12)
+        contador_text = ft.Text("", size=13, color=_ACCENT, ref=self._contador_ref)
+
+        resultado_section = ft.Column(
+            [
+                ft.Row(
+                    [ft.Text("Resultados de búsqueda", size=16,
+                             weight=ft.FontWeight.W_600, color=_TEXT),
+                     ft.Container(expand=True),
+                     contador_text],
+                ),
+                ft.Container(
+                    content=resultados_col,
+                    padding=ft.padding.only(top=8),
+                ),
+            ],
+            spacing=4,
+        )
+
+        # ── Últimos contactados
+        recientes_col = ft.Column(
+            ref=self._recientes_ref,
+            spacing=6,
+        )
+        self._cargar_recientes(recientes_col)
+
+        recientes_box = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Text("Últimos 6 asegurados\ncontactados", size=14,
+                            weight=ft.FontWeight.W_600, color=_TEXT),
+                    ft.Container(height=8),
+                    recientes_col,
+                    ft.Container(height=4),
+                    ft.TextButton(
+                        "Ver historial completo →",
+                        style=ft.ButtonStyle(color=_ACCENT),
+                    ),
+                ],
+                spacing=2,
+            ),
+            width=240,
+            padding=16,
+            bgcolor=_CARD,
+            border_radius=12,
+            border=ft.border.all(1, _BORDER),
+        )
+
+        # ── KPIs
+        kpis = self._build_kpis()
+
+        main = ft.Container(
+            content=ft.Column(
+                [
+                    topbar,
+                    ft.Container(
+                        content=ft.Column(
+                            [
+                                buscar_row,
+                                ft.Container(height=16),
+                                ft.Row(
+                                    [
+                                        ft.Container(content=resultado_section, expand=True),
+                                        recientes_box,
+                                    ],
+                                    spacing=20,
+                                    vertical_alignment=ft.CrossAxisAlignment.START,
+                                ),
+                                ft.Container(height=20),
+                                kpis,
+                            ],
+                            spacing=0,
+                        ),
+                        padding=ft.padding.symmetric(horizontal=28, vertical=20),
+                        expand=True,
+                    ),
+                ],
+                spacing=0,
+                expand=True,
+            ),
+            expand=True,
+            bgcolor=_BG,
+        )
+        return main
+
+    def _on_search(self, field: ft.TextField) -> None:
+        query = (field.value or "").strip()
+        col = self._resultados_ref.current
+        contador = self._contador_ref.current
+        col.controls.clear()
+        if not query:
+            self._page.update()
+            return
+
+        result = AseguradoController.search_asegurados(query)
+        asegurados = result.get("data", []) if result["ok"] else []
+        contador.value = f"{len(asegurados)} cliente{'s' if len(asegurados) != 1 else ''} encontrado{'s' if len(asegurados) != 1 else ''}"
+
+        cards = ft.GridView(
+            runs_count=3,
+            max_extent=260,
+            spacing=12,
+            run_spacing=12,
+            child_aspect_ratio=1.6,
+            expand=False,
+            height=min(len(asegurados), 6) * 105 // 3 + 30 if asegurados else 0,
+        )
+        for a in asegurados[:9]:
+            polizas_res = PolizaController.get_polizas_by_asegurado(a.id_asegurado)
+            polizas = polizas_res.get("data", []) if polizas_res["ok"] else []
+            tipo = polizas[0].tipo_seguro if polizas else None
+            cards.controls.append(self._tarjeta_resultado(a, tipo))
+
+        col.controls.append(cards)
+        self._page.update()
+
+    def _tarjeta_resultado(self, a, tipo_seguro: str | None) -> ft.Container:
+        initials = (a.nombre[0] + a.apellido_paterno[0]).upper()
+        badge_row = [_tipo_badge(tipo_seguro)] if tipo_seguro else []
+
+        def on_tap(e, aid=a.id_asegurado):
+            self._navigate("/asegurado/detalle", id_asegurado=aid)
+
+        return ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.CircleAvatar(
+                                content=ft.Text(initials, size=13, color=_MUTED),
+                                bgcolor=_CARD2,
+                                radius=18,
+                            ),
+                            ft.Container(expand=True),
+                            *badge_row,
+                        ],
+                    ),
+                    ft.Container(height=6),
+                    ft.Text(f"{a.nombre} {a.apellido_paterno}",
+                            size=13, weight=ft.FontWeight.W_600, color=_TEXT),
+                    ft.Row(
+                        [ft.Icon(ft.Icons.BADGE_OUTLINED, size=12, color=_MUTED),
+                         ft.Text(a.rfc, size=11, color=_MUTED)],
+                        spacing=4,
+                    ),
+                    ft.Row(
+                        [ft.Icon(ft.Icons.PHONE_OUTLINED, size=12, color=_MUTED),
+                         ft.Text(a.celular or "—", size=11, color=_MUTED)],
+                        spacing=4,
+                    ),
+                ],
+                spacing=3,
+            ),
+            padding=12,
+            bgcolor=_CARD,
+            border_radius=10,
+            border=ft.border.all(1, _BORDER),
+            on_click=on_tap,
+            ink=True,
+        )
+
+    def _cargar_recientes(self, col: ft.Column) -> None:
+        agente = self._agente
+        if not agente:
+            return
+        # Toma los últimos 6 asegurados con seguimiento del agente
+        segu_res = SeguimientoController.get_all_seguimientos()
+        todos = segu_res.get("data", []) if segu_res["ok"] else []
+        vistos: dict[int, object] = {}
+        for s in sorted(todos, key=lambda x: x.fecha_hora, reverse=True):
+            if s.id_agente == agente.id_agente and s.id_asegurado not in vistos:
+                vistos[s.id_asegurado] = s
+            if len(vistos) >= 6:
+                break
+
+        for id_a, seg in vistos.items():
+            res = AseguradoController.get_asegurado_by_id(id_a)
+            if not res["ok"]:
+                continue
+            a = res["data"]
+            polizas_res = PolizaController.get_polizas_by_asegurado(id_a)
+            polizas = polizas_res.get("data", []) if polizas_res["ok"] else []
+            tipo = polizas[0].tipo_seguro if polizas else None
+            initials = (a.nombre[0] + a.apellido_paterno[0]).upper()
+            nombre = f"{a.nombre} {a.apellido_paterno}"
+            from datetime import datetime, timezone
+            now = datetime.now()
+            delta = now - seg.fecha_hora
+            if delta.days == 0:
+                hace = f"Contactado hace {delta.seconds // 3600}h" if delta.seconds >= 3600 else "Contactado hoy"
+            elif delta.days == 1:
+                hace = "Contactado ayer"
+            else:
+                hace = f"Contactado hace {delta.days} días"
+
+            badge_bg, badge_fg = _TIPO_COLOR.get(tipo, ("#9CA3AF", "#1A1D27")) if tipo else ("#2D2D2D", "#9CA3AF")
+
+            def on_tap_r(e, aid=id_a):
+                self._navigate("/asegurado/detalle", id_asegurado=aid)
+
+            item = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.CircleAvatar(
+                            content=ft.Text(initials, size=11, color=_MUTED),
+                            bgcolor=_CARD2,
+                            radius=16,
+                        ),
+                        ft.Column(
+                            [
+                                ft.Text(nombre, size=12, weight=ft.FontWeight.W_600,
+                                        color=_TEXT, no_wrap=True),
+                                ft.Text(hace, size=10, color=_MUTED),
+                            ],
+                            spacing=1,
+                            expand=True,
+                        ),
+                        ft.Container(
+                            content=ft.Text(tipo or "—", size=10,
+                                            weight=ft.FontWeight.W_600, color=badge_fg),
+                            bgcolor=badge_bg,
+                            padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                            border_radius=12,
+                        ) if tipo else ft.Container(),
+                    ],
+                    spacing=8,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                on_click=on_tap_r,
+                ink=True,
+                border_radius=6,
+                padding=ft.padding.symmetric(horizontal=4, vertical=4),
+            )
+            col.controls.append(item)
+
+    def _build_kpis(self) -> ft.Row:
+        polizas_res = PolizaController.get_all_polizas()
+        polizas = polizas_res.get("data", []) if polizas_res["ok"] else []
+        activas = [p for p in polizas if p.estatus == "activa"]
+        vencen_pronto = [p for p in polizas if p.estatus == "activa"]  # simplificado
+
+        def kpi_card(titulo: str, valor: str, subtitulo: str,
+                     icon: str, color: str, bg: str) -> ft.Container:
+            return ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Text(titulo, size=12, color=_MUTED),
+                        ft.Text(valor, size=28, weight=ft.FontWeight.BOLD, color=_TEXT),
+                        ft.Row(
+                            [ft.Icon(icon, size=12, color=color),
+                             ft.Text(subtitulo, size=11, color=color)],
+                            spacing=4,
+                        ),
+                    ],
+                    spacing=4,
+                ),
+                expand=True,
+                padding=16,
+                bgcolor=bg,
+                border_radius=12,
+                border=ft.border.all(1, _BORDER),
+            )
+
+        return ft.Row(
+            [
+                kpi_card("Pólizas Activas", str(len(activas)),
+                         f"+{len(activas)} este mes", ft.Icons.TRENDING_UP_ROUNDED,
+                         _ACCENT, "#0D1F18"),
+                kpi_card("Renovaciones Pendientes",
+                         str(sum(1 for p in polizas if p.estatus == "activa")),
+                         "Vencen en 7 días",
+                         ft.Icons.WARNING_AMBER_ROUNDED, "#F59E0B", _CARD),
+                kpi_card("Siniestros en Trámite", "—",
+                         "En dictaminación",
+                         ft.Icons.SYNC_ROUNDED, "#06B6D4", _CARD),
+                kpi_card("Comisiones (MXN)", "—",
+                         "Cierre proyectado",
+                         ft.Icons.ATTACH_MONEY_ROUNDED, "#6366F1", _CARD),
+            ],
+            spacing=16,
+        )
+

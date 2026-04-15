@@ -28,6 +28,15 @@ class BeneficiarioRepository:
             return session.exec(select(Beneficiario).where(Beneficiario.deleted_at == None)).all()
 
     @staticmethod
+    def get_by_asegurado(id_asegurado: int) -> list[Beneficiario]:
+        with create_session() as session:
+            statement = select(Beneficiario).where(
+                Beneficiario.id_asegurado == id_asegurado,
+                Beneficiario.deleted_at == None,
+            )
+            return list(session.exec(statement).all())
+
+    @staticmethod
     def update(id_beneficiario: int, updated_data: dict) -> Beneficiario | None:
         with create_session() as session:
             entity = session.exec(

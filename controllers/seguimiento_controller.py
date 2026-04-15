@@ -29,6 +29,13 @@ class SeguimientoController:
             return {"ok": False, "error": str(e)}
 
     @staticmethod
+    def get_seguimientos_by_asegurado(id_asegurado: int) -> dict:
+        try:
+            return {"ok": True, "data": SeguimientoService.get_by_asegurado(id_asegurado)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
     def update_seguimiento(id_seguimiento: int, data: dict) -> dict:
         try:
             entity = SeguimientoService.update(id_seguimiento, data)

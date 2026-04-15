@@ -27,6 +27,13 @@ class BeneficiarioController:
             return {"ok": False, "error": str(e)}
 
     @staticmethod
+    def get_beneficiarios_by_asegurado(id_asegurado: int) -> dict:
+        try:
+            return {"ok": True, "data": BeneficiarioService.get_by_asegurado(id_asegurado)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
     def update_beneficiario(id_beneficiario: int, data: dict) -> dict:
         try:
             entity = BeneficiarioService.update(id_beneficiario, data)

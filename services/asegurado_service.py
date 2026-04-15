@@ -31,6 +31,14 @@ class AseguradoService:
         return AseguradoRepository.get_all()
 
     @staticmethod
+    def search(query: str) -> list[Asegurado]:
+        return AseguradoRepository.search_by_nombre_or_rfc(query)
+
+    @staticmethod
+    def get_by_agente(id_agente: int) -> list[Asegurado]:
+        return AseguradoRepository.get_by_agente(id_agente)
+
+    @staticmethod
     def update(id_asegurado: int, data: dict) -> Asegurado | None:
         if "correo" in data:
             validar_correo(data.get("correo"))

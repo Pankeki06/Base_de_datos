@@ -20,6 +20,10 @@ class SeguimientoService:
         return SeguimientoRepository.get_all()
 
     @staticmethod
+    def get_by_asegurado(id_asegurado: int) -> list[Seguimiento]:
+        return SeguimientoRepository.get_by_asegurado(id_asegurado)
+
+    @staticmethod
     def update(id_seguimiento: int, data: dict) -> Seguimiento | None:
         return SeguimientoRepository.update(id_seguimiento, data)
 

@@ -1,43 +1,403 @@
-"""Dashboard principal con paginación básica."""
+"""Dashboard principal."""
+
+from __future__ import annotations
+from datetime import date
 
 import flet as ft
+from controllers.asegurado_controller import AseguradoController
+from controllers.poliza_controller import PolizaController
+from services.session_manager import obtener_agente, cerrar_sesion
+
+_BG = "#0F1117"
+_SIDEBAR = "#13161F"
+_CARD = "#1A1D27"
+_CARD2 = "#1E2235"
+_ACCENT = "#00C17C"
+_TEXT = "#E8EAF0"
+_MUTED = "#6B7280"
+_BORDER = "#2D3148"
+_ERROR = "#EF4444"
+_WARN = "#F59E0B"
+_BLUE = "#3B82F6"
 
 
-def create_dashboard_view(page: ft.Page) -> ft.Column:
-    tab_bar = ft.TabBar(
-        tabs=[
-            ft.Tab(label="Parte 1"),
-            ft.Tab(label="Parte 2"),
-            ft.Tab(label="Parte 3"),
-        ],
-        scrollable=False,
+# ─── Sidebar icon-only ───────────────────────────────────────────────────────
+def _sidebar(navigate, ruta_activa: str = "/dashboard") -> ft.Container:
+    def _on_logout(e):
+        cerrar_sesion()
+        navigate("/login")
+
+    def _btn(icon, ruta, tooltip_text):
+        activo = ruta_activa == ruta
+        return ft.Container(
+            content=ft.Icon(icon, size=20, color=_TEXT if activo else _MUTED),
+            width=48, height=48,
+            border_radius=10,
+            bgcolor=_CARD2 if activo else ft.Colors.TRANSPARENT,
+            tooltip=tooltip_text,
+            alignment=ft.Alignment.CENTER,
+            on_click=lambda e, r=ruta: navigate(r),
+        )
+
+    return ft.Container(
+        content=ft.Column(
+            [
+                ft.Container(height=16),
+                ft.Container(
+                    content=ft.Icon(ft.Icons.GRID_VIEW_ROUNDED, size=22, color=_ACCENT),
+                    width=48, height=48, border_radius=10,
+                    bgcolor=ft.Colors.with_opacity(0.15, _ACCENT),
+                    alignment=ft.Alignment.CENTER,
+                    tooltip="Inicio",
+                    on_click=lambda e: navigate("/dashboard"),
+                ),
+                ft.Container(height=4),
+                _btn(ft.Icons.PERSON_OUTLINE_ROUNDED, "/clientes", "Clientes"),
+                _btn(ft.Icons.MENU_ROUNDED, "/polizas", "Pólizas"),
+                ft.Container(expand=True),
+                ft.Container(
+                    content=ft.Icon(ft.Icons.WB_SUNNY_OUTLINED, size=18, color=_MUTED),
+                    width=48, height=48, border_radius=10,
+                    bgcolor=ft.Colors.TRANSPARENT,
+                    alignment=ft.Alignment.CENTER,
+                    tooltip="Ajustes",
+                ),
+                ft.Container(height=4),
+                ft.Container(
+                    content=ft.Icon(ft.Icons.LOGOUT_ROUNDED, size=18, color=_MUTED),
+                    width=48, height=48, border_radius=10,
+                    bgcolor=ft.Colors.TRANSPARENT,
+                    alignment=ft.Alignment.CENTER,
+                    tooltip="Cerrar sesión",
+                    on_click=_on_logout,
+                ),
+                ft.Container(height=12),
+            ],
+            spacing=4,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            expand=True,
+        ),
+        width=64,
+        bgcolor=_SIDEBAR,
+        border=ft.border.only(right=ft.BorderSide(1, _BORDER)),
     )
 
-    tab_view = ft.TabBarView(
-        controls=[
-            ft.Column([ft.Text("Parte 1", size=24)], expand=1),
-            ft.Column([ft.Text("Parte 2", size=24)], expand=1),
-            ft.Column([ft.Text("Parte 3", size=24)], expand=1),
-        ],
-        expand=1,
+
+# ─── Pills de póliza ──────────────────────────────────────────────────────────
+def _pill(label: str, color: str, bg: str) -> ft.Container:
+    return ft.Container(
+        content=ft.Text(label, size=11, color=color, weight=ft.FontWeight.W_500),
+        bgcolor=bg,
+        padding=ft.padding.symmetric(horizontal=8, vertical=3),
+        border_radius=20,
+        border=ft.border.all(1, ft.Colors.with_opacity(0.25, color)),
     )
 
-    tabs = ft.Tabs(
-        content=ft.Column([tab_bar, tab_view], expand=1),
-        length=3,
-        selected_index=0,
-        animation_duration=200,
+
+def _poliza_pills(polizas: list) -> list:
+    if not polizas:
+        return [_pill("Sin póliza activa", _WARN, ft.Colors.with_opacity(0.12, _WARN))]
+    pills = []
+    tipo_colors = {
+        "Vida": (_ACCENT, ft.Colors.with_opacity(0.12, _ACCENT)),
+        "Autos": (_BLUE, ft.Colors.with_opacity(0.12, _BLUE)),
+        "Hogar": (_WARN, ft.Colors.with_opacity(0.12, _WARN)),
+        "Salud": ("#06B6D4", ft.Colors.with_opacity(0.12, "#06B6D4")),
+    }
+    for p in polizas[:3]:
+        fg, bg = tipo_colors.get(p.tipo_seguro, (_MUTED, _CARD2))
+        label = p.tipo_seguro if p.estatus != "vencida" else f"{p.tipo_seguro} vencida"
+        color = _ERROR if p.estatus == "vencida" else fg
+        pill_bg = ft.Colors.with_opacity(0.12, _ERROR) if p.estatus == "vencida" else bg
+        pills.append(_pill(label, color, pill_bg))
+    return pills
+
+
+# ─── Tarjeta asegurado ────────────────────────────────────────────────────────
+def _tarjeta(asegurado, polizas: list, navigate) -> ft.Container:
+    nombre = (f"{asegurado.nombre} {asegurado.apellido_paterno} "
+              f"{asegurado.apellido_materno}".strip())
+    return ft.Container(
+        content=ft.Column(
+            [
+                ft.Text(nombre, size=14, weight=ft.FontWeight.W_600,
+                        color=_TEXT, max_lines=1,
+                        overflow=ft.TextOverflow.ELLIPSIS),
+                ft.Text(asegurado.rfc, size=12, color=_MUTED),
+                ft.Container(height=8),
+                ft.Row(_poliza_pills(polizas), spacing=6, wrap=True),
+            ],
+            spacing=3,
+        ),
+        padding=ft.padding.symmetric(horizontal=16, vertical=14),
+        bgcolor=_CARD,
+        border_radius=10,
+        border=ft.border.all(1, _BORDER),
+        on_click=lambda e, aid=asegurado.id_asegurado: navigate(
+            "/asegurado/detalle", id_asegurado=aid),
+        ink=True,
     )
 
-    return ft.Column(
-        [
-            ft.Text("Dashboard de la aplicación", size=28),
-            ft.Text(
-                "Navega entre las secciones usando la paginación de pestañas.",
-                size=16,
+
+# ─── Vista Dashboard ──────────────────────────────────────────────────────────
+class DashboardView:
+    def __init__(self, page: ft.Page, navigate) -> None:
+        self._page = page
+        self._navigate = navigate
+        self._agente = obtener_agente()
+        self._resultados_ref = ft.Ref[ft.Column]()
+        self._recientes_ref = ft.Ref[ft.Column]()
+
+    def build(self) -> ft.Control:
+        agente = self._agente
+        nombre_agente = (f"{agente.nombre} {agente.apellido_paterno}"
+                         if agente else "Agente")
+        iniciales = ((agente.nombre[0] + agente.apellido_paterno[0]).upper()
+                     if agente else "A")
+
+        # Barra de búsqueda
+        search_field = ft.TextField(
+            hint_text="Buscar por nombre o RFC...",
+            hint_style=ft.TextStyle(color=_MUTED, size=15),
+            text_style=ft.TextStyle(color=_TEXT, size=15),
+            prefix_icon=ft.Icons.SEARCH_ROUNDED,
+            border_color=_BORDER,
+            focused_border_color=_ACCENT,
+            bgcolor=_CARD,
+            border_radius=10,
+            content_padding=ft.padding.symmetric(horizontal=16, vertical=16),
+            expand=True,
+            on_change=lambda e: self._on_search_change(e.control.value),
+        )
+
+        # Sección resultados de búsqueda (oculta inicialmente)
+        resultados_col = ft.Column(
+            ref=self._resultados_ref,
+            spacing=12,
+            visible=False,
+        )
+
+        # Sección recientes
+        recientes_grid = self._build_recientes()
+
+        # KPIs
+        kpis = self._build_kpis()
+
+        # Topbar
+        topbar = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Text("Inicio", size=18,
+                            weight=ft.FontWeight.BOLD, color=_TEXT),
+                    ft.Container(expand=True),
+                    ft.Row(
+                        [
+                            ft.Container(
+                                content=ft.Text(iniciales, size=13,
+                                                weight=ft.FontWeight.BOLD,
+                                                color=_TEXT),
+                                width=36, height=36, border_radius=18,
+                                bgcolor=_BLUE,
+                                alignment=ft.Alignment.CENTER,
+                            ),
+                            ft.Text(nombre_agente, size=14, color=_TEXT),
+                        ],
+                        spacing=10,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            tabs,
-        ],
-        spacing=20,
-        alignment=ft.MainAxisAlignment.START,
-    )
+            padding=ft.padding.symmetric(horizontal=28, vertical=16),
+            border=ft.border.only(bottom=ft.BorderSide(1, _BORDER)),
+        )
+
+        # Cuerpo con scroll
+        cuerpo = ft.Container(
+            content=ft.Column(
+                [
+                    search_field,
+                    # Resultados búsqueda
+                    resultados_col,
+                    # Recientes (se ocultan al buscar)
+                    ft.Column(
+                        ref=self._recientes_ref,
+                        controls=[
+                            ft.Container(height=4),
+                            ft.Text("CONTACTADOS RECIENTEMENTE", size=11,
+                                    weight=ft.FontWeight.W_600, color=_MUTED),
+                            ft.Container(height=6),
+                            recientes_grid,
+                            ft.Container(height=20),
+                            ft.Text("RESUMEN DEL EQUIPO", size=11,
+                                    weight=ft.FontWeight.W_600, color=_MUTED),
+                            ft.Container(height=6),
+                            kpis,
+                        ],
+                        spacing=0,
+                    ),
+                ],
+                spacing=12,
+                scroll=ft.ScrollMode.AUTO,
+                expand=True,
+            ),
+            padding=ft.padding.symmetric(horizontal=28, vertical=20),
+            expand=True,
+        )
+
+        main = ft.Container(
+            content=ft.Column(
+                [topbar, cuerpo],
+                spacing=0,
+                expand=True,
+            ),
+            expand=True,
+            bgcolor=_BG,
+        )
+
+        return ft.Container(
+            content=ft.Row([_sidebar(self._navigate), main],
+                           spacing=0, expand=True),
+            expand=True,
+            bgcolor=_BG,
+        )
+
+    def _on_search_change(self, query: str) -> None:
+        res_col = self._resultados_ref.current
+        rec_col = self._recientes_ref.current
+        if not res_col or not rec_col:
+            return
+        query = query.strip()
+        if not query:
+            res_col.visible = False
+            res_col.controls.clear()
+            rec_col.visible = True
+            self._page.update()
+            return
+
+        res = AseguradoController.search_asegurados(query)
+        asegurados = res.get("data", []) if res["ok"] else []
+
+        res_col.controls.clear()
+        res_col.controls.append(
+            ft.Text("RESULTADOS", size=11, weight=ft.FontWeight.W_600, color=_MUTED)
+        )
+        if not asegurados:
+            res_col.controls.append(
+                ft.Text("Sin resultados para esa búsqueda.", color=_MUTED, size=13)
+            )
+        else:
+            cards = []
+            for a in asegurados[:20]:
+                pol_res = PolizaController.get_polizas_by_asegurado(a.id_asegurado)
+                pols = pol_res.get("data", []) if pol_res["ok"] else []
+                cards.append(
+                    ft.Container(
+                        content=_tarjeta(a, pols, self._navigate),
+                        col={"xs": 12, "sm": 6, "md": 4},
+                    )
+                )
+            res_col.controls.append(
+                ft.ResponsiveRow(cards, spacing=12, run_spacing=12)
+            )
+
+        res_col.visible = True
+        rec_col.visible = False
+        self._page.update()
+
+    def _build_recientes(self) -> ft.Control:
+        agente = self._agente
+        if not agente:
+            return ft.Text("Sin sesión activa.", color=_MUTED, size=13)
+
+        try:
+            from repositories.seguimiento_repository import SeguimientoRepository
+            segs = SeguimientoRepository.get_all()
+        except Exception:
+            return ft.Text("Error al cargar recientes.", color=_MUTED, size=13)
+
+        vistos: set[int] = set()
+        ids_rec: list[int] = []
+        for s in sorted(segs, key=lambda x: x.fecha_hora, reverse=True):
+            if s.id_agente != agente.id_agente:
+                continue
+            if s.id_asegurado not in vistos:
+                vistos.add(s.id_asegurado)
+                ids_rec.append(s.id_asegurado)
+            if len(ids_rec) == 6:
+                break
+
+        if not ids_rec:
+            return ft.Text("Sin contactos recientes.", color=_MUTED, size=13)
+
+        cards = []
+        for aid in ids_rec:
+            a_res = AseguradoController.get_asegurado_by_id(aid)
+            if not a_res["ok"]:
+                continue
+            a = a_res["data"]
+            pol_res = PolizaController.get_polizas_by_asegurado(aid)
+            pols = pol_res.get("data", []) if pol_res["ok"] else []
+            cards.append(
+                ft.Container(
+                    content=_tarjeta(a, pols, self._navigate),
+                    col={"xs": 12, "sm": 6, "md": 4},
+                )
+            )
+
+        return ft.ResponsiveRow(cards, spacing=12, run_spacing=12)
+
+    def _build_kpis(self) -> ft.Control:
+        agente = self._agente
+        id_agente = agente.id_agente if agente else None
+
+        try:
+            from repositories.seguimiento_repository import SeguimientoRepository
+            from repositories.poliza_repository import PolizaRepository
+            from datetime import timedelta
+
+            a_res = (AseguradoController.get_asegurados_by_agente(id_agente)
+                     if id_agente else {"ok": False})
+            total_asegurados = len(a_res.get("data", [])) if a_res["ok"] else 0
+
+            segs = SeguimientoRepository.get_all()
+            hoy = date.today()
+            segs_hoy = sum(
+                1 for s in segs
+                if s.id_agente == id_agente and s.fecha_hora.date() == hoy
+            )
+
+            todas = PolizaRepository.get_all()
+            limite = hoy + timedelta(days=30)
+            por_vencer = sum(
+                1 for p in todas
+                if p.estatus == "activa" and p.fecha_vencimiento <= limite
+            )
+        except Exception:
+            total_asegurados = segs_hoy = por_vencer = 0
+
+        def _kpi(valor, etiqueta) -> ft.Container:
+            return ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Text(str(valor), size=32,
+                                weight=ft.FontWeight.BOLD, color=_TEXT),
+                        ft.Text(etiqueta, size=13, color=_MUTED),
+                    ],
+                    spacing=4,
+                ),
+                padding=ft.padding.symmetric(horizontal=20, vertical=18),
+                bgcolor=_CARD, border_radius=10,
+                border=ft.border.all(1, _BORDER),
+                col={"xs": 12, "sm": 4},
+            )
+
+        return ft.ResponsiveRow(
+            [
+                _kpi(total_asegurados, "Asegurados activos"),
+                _kpi(segs_hoy, "Seguimientos hoy"),
+                _kpi(por_vencer, "Pólizas por vencer"),
+            ],
+            spacing=12, run_spacing=12,
+        )
+

@@ -20,6 +20,10 @@ class BeneficiarioService:
         return BeneficiarioRepository.get_all()
 
     @staticmethod
+    def get_by_asegurado(id_asegurado: int) -> list[Beneficiario]:
+        return BeneficiarioRepository.get_by_asegurado(id_asegurado)
+
+    @staticmethod
     def update(id_beneficiario: int, data: dict) -> Beneficiario | None:
         if "porcentaje_participacion" in data:
             validar_porcentaje(float(data["porcentaje_participacion"]))

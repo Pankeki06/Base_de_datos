@@ -20,6 +20,10 @@ class BeneficioService:
         return BeneficioRepository.get_all()
 
     @staticmethod
+    def get_by_poliza(id_poliza: int) -> list[Beneficio]:
+        return BeneficioRepository.get_by_poliza(id_poliza)
+
+    @staticmethod
     def update(id_beneficio: int, data: dict) -> Beneficio | None:
         if "monto_cobertura" in data:
             validar_monto_positivo(float(data["monto_cobertura"]), "monto_cobertura")

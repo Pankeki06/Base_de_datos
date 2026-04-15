@@ -25,6 +25,10 @@ class PolizaService:
         return PolizaRepository.get_all()
 
     @staticmethod
+    def get_by_asegurado(id_asegurado: int) -> list[Poliza]:
+        return PolizaRepository.get_by_asegurado(id_asegurado)
+
+    @staticmethod
     def update(id_poliza: int, data: dict) -> Poliza | None:
         fecha_inicio = data.get("fecha_inicio")
         fecha_vencimiento = data.get("fecha_vencimiento")

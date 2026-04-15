@@ -28,6 +28,15 @@ class SeguimientoRepository:
             return session.exec(select(Seguimiento).where(Seguimiento.deleted_at == None)).all()
 
     @staticmethod
+    def get_by_asegurado(id_asegurado: int) -> list[Seguimiento]:
+        with create_session() as session:
+            statement = select(Seguimiento).where(
+                Seguimiento.id_asegurado == id_asegurado,
+                Seguimiento.deleted_at == None,
+            ).order_by(Seguimiento.fecha_hora.desc())
+            return list(session.exec(statement).all())
+
+    @staticmethod
     def update(id_seguimiento: int, updated_data: dict) -> Seguimiento | None:
         with create_session() as session:
             entity = session.exec(

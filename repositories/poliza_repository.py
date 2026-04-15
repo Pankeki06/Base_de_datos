@@ -33,6 +33,14 @@ class PolizaRepository:
             return session.exec(select(Poliza).where(Poliza.deleted_at == None)).all()
 
     @staticmethod
+    def get_by_asegurado(id_asegurado: int) -> list[Poliza]:
+        with create_session() as session:
+            statement = select(Poliza).where(
+                Poliza.id_asegurado == id_asegurado, Poliza.deleted_at == None
+            )
+            return list(session.exec(statement).all())
+
+    @staticmethod
     def update(id_poliza: int, updated_data: dict) -> Poliza | None:
         with create_session() as session:
             entity = session.exec(select(Poliza).where(Poliza.id_poliza == id_poliza, Poliza.deleted_at == None)).first()
