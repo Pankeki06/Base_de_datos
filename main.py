@@ -1,7 +1,7 @@
 """Punto de entrada de la aplicación."""
 
 import flet as ft
-from views.theme import BG
+from views.login_view import LoginView
 
 
 def main(page: ft.Page) -> None:
@@ -10,7 +10,7 @@ def main(page: ft.Page) -> None:
     page.window.height = 720
     page.window.min_width = 900
     page.window.min_height = 650
-    page.bgcolor = ft.Colors.with_opacity(1, BG)
+    page.bgcolor = ft.Colors.with_opacity(1, "#0F1117")
     page.padding = 0
 
     def navigate(route: str, **kwargs) -> None:
@@ -46,9 +46,6 @@ def main(page: ft.Page) -> None:
         elif route == "/polizas":
             from views.polizas.lista_view import ListaPolizasView
             page.add(ListaPolizasView(page, navigate).build())
-        elif route == "/agentes":
-            from views.agentes.lista_view import ListaAgentesView
-            page.add(ListaAgentesView(page, navigate).build())
         elif route == "/asegurado/nuevo":
             from views.asegurado.formulario_view import FormularioAseguradoView
             page.add(FormularioAseguradoView(page, navigate, asegurado=None).build())

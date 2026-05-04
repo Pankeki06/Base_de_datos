@@ -146,6 +146,7 @@ CREATE TABLE IF NOT EXISTS asegurado_poliza (
     id_asegurado        INT  NOT NULL,
     tipo_participante   ENUM('titular', 'conyuge', 'hijo', 'dependiente') NOT NULL,
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at          DATETIME NULL,
     FOREIGN KEY (id_poliza)    REFERENCES poliza(id_poliza)       ON DELETE CASCADE,
     FOREIGN KEY (id_asegurado) REFERENCES asegurado(id_asegurado) ON DELETE CASCADE,

@@ -5,7 +5,6 @@ import flet as ft
 import services.session_manager as session_manager
 from views import dashboard_view as dashboard_module
 from views import ui_controls as ui_controls_module
-from views.agentes import lista_view as agentes_module
 from views.asegurado import asignaciones_view as asignaciones_module
 from views.asegurado import detalle_view as detalle_module
 from views.asegurado import formulario_view as formulario_module
@@ -130,81 +129,6 @@ def test_sidebar_oculta_boton_agentes_para_agente_normal(monkeypatch):
     ]
 
     assert "Agentes" not in tooltips
-
-
-def test_lista_agentes_restringe_acceso_para_no_admin(monkeypatch):
-    page = DummyPage()
-
-    monkeypatch.setattr(
-        agentes_module,
-        "obtener_agente",
-        lambda: SimpleNamespace(id_agente=2, rol="agente", nombre="Ana", apellido_paterno="Diaz"),
-    )
-
-    view = agentes_module.ListaAgentesView(page, lambda *_args, **_kwargs: None)
-    control = view.build()
-    texts = _find_text_values(control)
-
-    assert "Acceso restringido" in texts
-    assert "Solo los administradores pueden gestionar agentes y roles." in texts
-
-
-def test_lista_agentes_admin_puede_crear_agente(monkeypatch):
-    page = DummyPage()
-    captured_payload = {}
-
-    monkeypatch.setattr(
-        agentes_module,
-        "obtener_agente",
-        lambda: SimpleNamespace(id_agente=1, rol="admin", nombre="Root", apellido_paterno="Admin"),
-    )
-    monkeypatch.setattr(
-        agentes_module.AgenteController,
-        "get_all_agentes",
-        lambda: {"ok": True, "data": []},
-    )
-    monkeypatch.setattr(
-        agentes_module.AgenteController,
-        "create_agente",
-        lambda payload: captured_payload.update(payload) or {"ok": True, "data": SimpleNamespace(id_agente=99, **payload)},
-    )
-
-    view = agentes_module.ListaAgentesView(page, lambda *_args, **_kwargs: None)
-    control = view.build()
-
-    new_button = _find_first(
-        control,
-        ft.FilledButton,
-        lambda item: _button_label(item) == "Nuevo agente",
-    )
-    new_button.on_click(None)
-
-    assert len(page.dialogs) == 1
-    dialog = page.dialogs[0]
-    text_fields = [item for item in _walk_controls(dialog) if isinstance(item, ft.TextField)]
-    dropdowns = [item for item in _walk_controls(dialog) if isinstance(item, ft.Dropdown)]
-
-    labels = {field.label: field for field in text_fields}
-    labels["Clave agente"].value = "agente-ui-01"
-    labels["Cédula"].value = "1234567890"
-    labels["Nombre"].value = "Laura"
-    labels["Apellido paterno"].value = "Rios"
-    labels["Apellido materno"].value = "Lopez"
-    labels["Correo"].value = "laura.ui@test.com"
-    labels["Teléfono"].value = "5512345678"
-    labels["Contraseña"].value = "1234"
-    dropdowns[0].value = "agente"
-
-    save_button = _find_first(
-        dialog,
-        ft.FilledButton,
-        lambda item: _button_label(item) == "Guardar",
-    )
-    save_button.on_click(None)
-
-    assert captured_payload["clave_agente"] == "agente-ui-01"
-    assert captured_payload["rol"] == "agente"
-    assert captured_payload["password"] == "1234"
 
 
 def test_lista_polizas_view_build_carga_productos_y_beneficios(monkeypatch):

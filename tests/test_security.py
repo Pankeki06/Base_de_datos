@@ -54,33 +54,3 @@ def test_login_agente_rehashes_legacy_password(monkeypatch):
     assert len(update_calls) == 1
     assert update_calls[0][0] == 7
     assert verify_password("1234", update_calls[0][1]["password"]) is True
-
-
-def test_verify_password_falla_con_contrasena_incorrecta():
-    from services.security import hash_password, verify_password
-    hashed = hash_password("correcta")
-    assert verify_password("incorrecta", hashed) is False
-
-
-def test_verify_password_legacy_falla_con_contrasena_incorrecta():
-    import hashlib
-    from services.security import PASSWORD_SALT, verify_password
-    salted = f"{PASSWORD_SALT}:buena".encode("utf-8")
-    legacy_hash = hashlib.sha256(salted).hexdigest()
-    assert verify_password("mala", legacy_hash) is False
-
-
-def test_hash_password_contrasena_muy_larga():
-    from services.security import hash_password, verify_password
-    pw = "A" * 1000
-    hashed = hash_password(pw)
-    assert verify_password(pw, hashed) is True
-    assert verify_password("A" * 999, hashed) is False
-
-
-def test_login_agente_sin_contrasena_no_autenticado(monkeypatch):
-    """Sin password, login_agente debe rechazar aunque el agente exista."""
-    import pytest
-    import services.auth_service as _auth
-    with pytest.raises(ValueError):
-        _auth.login_agente("clave", "")

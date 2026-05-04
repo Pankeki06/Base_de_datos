@@ -7,7 +7,6 @@ from controllers.auth_controller import AuthController
 from services.session_manager import guardar_sesion
 from views.theme import (
     ACCENT as _ACCENT,
-    ACCENT_HOVER as _ACCENT_HOVER,
     BG as _BG,
     BORDER as _BORDER,
     CARD as _CARD,
@@ -64,7 +63,7 @@ class LoginView:
             content=ft.Row(
                 [
                     ft.Text("Iniciar sesion", size=14, weight=ft.FontWeight.W_600,
-                            color=_TEXT),
+                            color="#000000"),
                 ],
                 spacing=8,
                 alignment=ft.MainAxisAlignment.CENTER,
@@ -73,7 +72,7 @@ class LoginView:
             height=44,
             style=ft.ButtonStyle(
                 bgcolor={ft.ControlState.DEFAULT: _ACCENT,
-                         ft.ControlState.HOVERED: _ACCENT_HOVER},
+                         ft.ControlState.HOVERED: "#00A86B"},
                 shape=ft.RoundedRectangleBorder(radius=8),
                 elevation={"pressed": 0, "": 2},
             ),
@@ -84,12 +83,12 @@ class LoginView:
             content=ft.Column(
                 controls=[
                     ft.Container(
-                        content=ft.Icon(ft.Icons.LOGIN_ROUNDED, size=24, color="#F8FBF8"),
+                        content=ft.Icon(ft.Icons.LOGIN_ROUNDED, size=24, color=_TEXT),
                         width=52,
                         height=52,
-                        bgcolor=_TEXT,
+                        bgcolor="#111528",
                         border_radius=26,
-                        border=ft.Border.all(1, ft.Colors.with_opacity(0.35, _ACCENT_HOVER)),
+                        border=ft.Border.all(1, _BORDER),
                         alignment=ft.Alignment.CENTER,
                     ),
                     ft.Text("Iniciar sesion", size=20, weight=ft.FontWeight.W_600, color=_TEXT),

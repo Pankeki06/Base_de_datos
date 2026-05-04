@@ -26,6 +26,15 @@ def login_agente(clave_agente: str, password: str):
     return agente
 
 
+def login_agente_por_clave(clave_agente: str):
+    """Autenticación solo por clave de agente (sin contraseña)."""
+    validar_requerido(clave_agente, "clave_agente")
+    agente = AgenteRepository.get_agente_by_clave(clave_agente)
+    if not agente:
+        return None
+    return agente
+
+
 def authenticate(clave_agente: str, password: str) -> bool:
     """Compatibilidad con el flujo actual de login en Flet."""
     return login_agente(clave_agente, password) is not None

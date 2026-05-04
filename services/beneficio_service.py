@@ -56,7 +56,9 @@ class BeneficioService:
         payload["id_asegurado_poliza"] = BeneficioService._normalize_optional_int(
             payload.get("id_asegurado_poliza")
         )
-        payload["id_producto_beneficio"] = int(payload["id_producto_beneficio"])
+        payload["id_producto_beneficio"] = BeneficioService._normalize_optional_int(
+            payload.get("id_producto_beneficio")
+        )
 
         plantilla = ProductoBeneficioRepository.get_by_id(payload["id_producto_beneficio"])
         if not plantilla:
@@ -65,9 +67,6 @@ class BeneficioService:
         payload["nombre_beneficio"] = plantilla.nombre_beneficio
         payload["descripcion"] = plantilla.descripcion
         payload["monto_cobertura"] = float(plantilla.monto_cobertura or 0)
-        payload["costo_aplicado"] = (
-            0.0 if getattr(plantilla, "incluido_base", True) else float(getattr(plantilla, "costo_extra", 0) or 0)
-        )
         payload["monto_override"] = BeneficioService._normalize_optional_float(
             payload.get("monto_override")
         )
@@ -101,11 +100,11 @@ class BeneficioService:
             return None
 
         payload = data.copy()
-        allowed_fields = {"id_asegurado_poliza", "monto_override", "vigente", "costo_aplicado"}
+        allowed_fields = {"id_asegurado_poliza", "monto_override", "vigente"}
         unknown_fields = set(payload.keys()) - allowed_fields
         if unknown_fields:
             raise ValueError(
-                "Solo se permite editar: id_asegurado_poliza, monto_override, costo_aplicado y vigente."
+                "Solo se permite editar: id_asegurado_poliza, monto_override y vigente."
             )
 
         effective_id_poliza = int(entity.id_poliza)
@@ -122,11 +121,6 @@ class BeneficioService:
             )
             if payload["monto_override"] is not None:
                 validar_monto_positivo(payload["monto_override"], "monto_override")
-
-        if "costo_aplicado" in payload:
-            payload["costo_aplicado"] = float(payload["costo_aplicado"])
-            if payload["costo_aplicado"] < 0:
-                raise ValueError("El costo_aplicado no puede ser negativo.")
 
         if "vigente" in payload:
             payload["vigente"] = bool(payload["vigente"])

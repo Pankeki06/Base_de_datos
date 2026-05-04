@@ -47,9 +47,8 @@ class BeneficiarioRepository:
             statement = select(Beneficiario).where(
                 Beneficiario.id_asegurado == id_asegurado,
                 Beneficiario.deleted_at == None,
+                Beneficiario.id_poliza == id_poliza,
             )
-            if id_poliza is not None:
-                statement = statement.where(Beneficiario.id_poliza == id_poliza)
             if exclude_id is not None:
                 statement = statement.where(Beneficiario.id_beneficiario != exclude_id)
             beneficiarios = session.exec(statement).all()
@@ -65,7 +64,6 @@ class BeneficiarioRepository:
                 return None
             for key, value in updated_data.items():
                 setattr(entity, key, value)
-            entity.updated_at = datetime.now()
             session.add(entity)
             session.commit()
             session.refresh(entity)

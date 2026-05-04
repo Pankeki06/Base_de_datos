@@ -1,14 +1,12 @@
 """Dashboard principal."""
 
 from __future__ import annotations
-import logging
-from datetime import date, timedelta
+from datetime import date
 
 import flet as ft
 from controllers.asegurado_controller import AseguradoController
 from controllers.poliza_controller import PolizaController
 from controllers.producto_poliza_controller import ProductoPolizaController
-from controllers.seguimiento_controller import SeguimientoController
 from services.session_manager import obtener_agente, cerrar_sesion
 from views.theme import (
     ACCENT as _ACCENT,
@@ -254,15 +252,11 @@ class DashboardView:
                 ft.Text("Sin resultados para esa búsqueda.", color=_MUTED, size=13)
             )
         else:
-            try:
-                prod_res = ProductoPolizaController.get_all_productos()
-                producto_map = (
-                    {p.id_producto: p for p in prod_res.get("data", [])}
-                    if prod_res["ok"] else {}
-                )
-            except Exception:
-                logging.getLogger(__name__).exception("Error al cargar productos en búsqueda")
-                producto_map = {}
+            prod_res = ProductoPolizaController.get_all_productos()
+            producto_map = (
+                {p.id_producto: p for p in prod_res.get("data", [])}
+                if prod_res["ok"] else {}
+            )
             cards = []
             for a in asegurados[:20]:
                 pol_res = PolizaController.get_polizas_by_asegurado(a.id_asegurado)
@@ -296,10 +290,9 @@ class DashboardView:
             return ft.Text("Sin sesión activa.", color=_MUTED, size=13)
 
         try:
-            seg_res = SeguimientoController.get_all_seguimientos()
-            segs = seg_res.get("data", []) if seg_res["ok"] else []
+            from repositories.seguimiento_repository import SeguimientoRepository
+            segs = SeguimientoRepository.get_all()
         except Exception:
-            logging.getLogger(__name__).exception("Error al cargar seguimientos recientes")
             return ft.Text("Error al cargar recientes.", color=_MUTED, size=13)
 
         vistos: set[int] = set()
@@ -317,15 +310,11 @@ class DashboardView:
             return ft.Text("Sin contactos recientes.", color=_MUTED, size=13)
 
         cards = []
-        try:
-            prod_res = ProductoPolizaController.get_all_productos()
-            producto_map = (
-                {p.id_producto: p for p in prod_res.get("data", [])}
-                if prod_res["ok"] else {}
-            )
-        except Exception:
-            logging.getLogger(__name__).exception("Error al cargar productos en recientes")
-            producto_map = {}
+        prod_res = ProductoPolizaController.get_all_productos()
+        producto_map = (
+            {p.id_producto: p for p in prod_res.get("data", [])}
+            if prod_res["ok"] else {}
+        )
         for aid in ids_rec:
             a_res = AseguradoController.get_asegurado_by_id(aid)
             if not a_res["ok"]:
@@ -356,18 +345,20 @@ class DashboardView:
         id_agente = agente.id_agente if agente else None
 
         try:
-            seg_res = SeguimientoController.get_all_seguimientos()
-            segs = seg_res.get("data", []) if seg_res["ok"] else []
-            hoy = date.today()
-            segs_hoy = sum(
-                1 for s in segs
-                if s.id_agente == id_agente and s.fecha_hora.date() == hoy
-            )
+            from repositories.seguimiento_repository import SeguimientoRepository
+            from datetime import timedelta
 
             a_res = (AseguradoController.get_asegurados_by_agente(id_agente)
                      if id_agente else {"ok": False})
             asegurados = list(a_res.get("data", [])) if a_res["ok"] else []
             total_asegurados = len(asegurados)
+
+            segs = SeguimientoRepository.get_all()
+            hoy = date.today()
+            segs_hoy = sum(
+                1 for s in segs
+                if s.id_agente == id_agente and s.fecha_hora.date() == hoy
+            )
 
             limite = hoy + timedelta(days=30)
             por_vencer = 0
@@ -380,7 +371,6 @@ class DashboardView:
                     if poliza.estatus == "activa" and poliza.fecha_vencimiento <= limite
                 )
         except Exception:
-            logging.getLogger(__name__).exception("Error al calcular KPIs del dashboard")
             total_asegurados = segs_hoy = por_vencer = 0
 
         def _kpi(valor, etiqueta) -> ft.Container:
