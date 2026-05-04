@@ -78,6 +78,12 @@ DB_NAME=aseguradora
 
 Ejecuta el script SQL en workbebch para crear la base de datos y todas las tablas:
 
+Si vienes de una base legada creada antes de la relación directa entre beneficiario y póliza, ejecuta una sola vez el ajuste de compatibilidad:
+
+```powershell
+python scripts/apply_schema_compatibility.py
+```
+
 
 ---
 

@@ -6,9 +6,9 @@ from sqlmodel import SQLModel, Field as SqlModelField
 
 class Poliza(SQLModel, table=True):
     id_poliza: int | None = SqlModelField(default=None, primary_key=True)
-    id_asegurado: int = SqlModelField(foreign_key="asegurado.id_asegurado")
+    id_asegurado: int = SqlModelField(foreign_key="asegurado.id_asegurado", index=True)
+    id_producto: int = SqlModelField(foreign_key="producto_poliza.id_producto", index=True)
     numero_poliza: str = SqlModelField(unique=True, max_length=100)
-    tipo_seguro: str = SqlModelField(max_length=100)
     fecha_inicio: date
     fecha_vencimiento: date
     estatus: str = SqlModelField(max_length=20)

@@ -1,0 +1,407 @@
+[33mcommit 1ddd202bad53c67c387d5492901f3ada8ad0e853[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mtest[m[33m, [m[1;31morigin/test[m[33m)[m
+Author: fredy de la cruz <alexdelacruzg666@gamil.com>
+Date:   Wed Apr 15 10:33:51 2026 -0600
+
+    prueba de intefaz
+
+[1mdiff --git a/controllers/asegurado_controller.py b/controllers/asegurado_controller.py[m
+[1mindex 61c83ec..d4fe68b 100644[m
+[1m--- a/controllers/asegurado_controller.py[m
+[1m+++ b/controllers/asegurado_controller.py[m
+[36m@@ -28,6 +28,20 @@[m [mclass AseguradoController:[m
+         except Exception as e:[m
+             return {"ok": False, "error": str(e)}[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def search_asegurados(query: str) -> dict:[m
+[32m+[m[32m        try:[m
+[32m+[m[32m            return {"ok": True, "data": AseguradoService.search(query)}[m
+[32m+[m[32m        except Exception as e:[m
+[32m+[m[32m            return {"ok": False, "error": str(e)}[m
+[32m+[m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_asegurados_by_agente(id_agente: int) -> dict:[m
+[32m+[m[32m        try:[m
+[32m+[m[32m            return {"ok": True, "data": AseguradoService.get_by_agente(id_agente)}[m
+[32m+[m[32m        except Exception as e:[m
+[32m+[m[32m            return {"ok": False, "error": str(e)}[m
+[32m+[m
+     @staticmethod[m
+     def update_asegurado(id_asegurado: int, data: dict) -> dict:[m
+         try:[m
+[1mdiff --git a/controllers/auth_controller.py b/controllers/auth_controller.py[m
+[1mindex dc4c38a..b9ac7c5 100644[m
+[1m--- a/controllers/auth_controller.py[m
+[1m+++ b/controllers/auth_controller.py[m
+[36m@@ -6,11 +6,13 @@[m [mfrom services.auth_service import login_agente[m
+ class AuthController:[m
+     @staticmethod[m
+     def login(clave_agente: str, password: str) -> dict:[m
+[31m-        """Valida credenciales y devuelve resultado. No toca la UI."""[m
+[31m-        if not clave_agente or not password:[m
+[31m-            return {"ok": False, "error": "Debe ingresar clave y contraseña."}[m
+[32m+[m[32m        """Valida clave + contraseña de agente y devuelve resultado."""[m
+[32m+[m[32m        if not clave_agente or not clave_agente.strip():[m
+[32m+[m[32m            return {"ok": False, "error": "Debe ingresar la clave de agente."}[m
+[32m+[m[32m        if not password or not password.strip():[m
+[32m+[m[32m            return {"ok": False, "error": "Debe ingresar la contraseña."}[m
+         try:[m
+[31m-            agente = login_agente(clave_agente, password)[m
+[32m+[m[32m            agente = login_agente(clave_agente.strip(), password)[m
+             if not agente:[m
+                 return {"ok": False, "error": "Clave o contraseña incorrecta."}[m
+             return {"ok": True, "data": agente}[m
+[1mdiff --git a/controllers/beneficiario_controller.py b/controllers/beneficiario_controller.py[m
+[1mindex 3918c34..de27c74 100644[m
+[1m--- a/controllers/beneficiario_controller.py[m
+[1m+++ b/controllers/beneficiario_controller.py[m
+[36m@@ -26,6 +26,13 @@[m [mclass BeneficiarioController:[m
+         except Exception as e:[m
+             return {"ok": False, "error": str(e)}[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_beneficiarios_by_asegurado(id_asegurado: int) -> dict:[m
+[32m+[m[32m        try:[m
+[32m+[m[32m            return {"ok": True, "data": BeneficiarioService.get_by_asegurado(id_asegurado)}[m
+[32m+[m[32m        except Exception as e:[m
+[32m+[m[32m            return {"ok": False, "error": str(e)}[m
+[32m+[m
+     @staticmethod[m
+     def update_beneficiario(id_beneficiario: int, data: dict) -> dict:[m
+         try:[m
+[1mdiff --git a/controllers/beneficio_controller.py b/controllers/beneficio_controller.py[m
+[1mindex 61ec054..d8ecfe8 100644[m
+[1m--- a/controllers/beneficio_controller.py[m
+[1m+++ b/controllers/beneficio_controller.py[m
+[36m@@ -26,6 +26,13 @@[m [mclass BeneficioController:[m
+         except Exception as e:[m
+             return {"ok": False, "error": str(e)}[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_beneficios_by_poliza(id_poliza: int) -> dict:[m
+[32m+[m[32m        try:[m
+[32m+[m[32m            return {"ok": True, "data": BeneficioService.get_by_poliza(id_poliza)}[m
+[32m+[m[32m        except Exception as e:[m
+[32m+[m[32m            return {"ok": False, "error": str(e)}[m
+[32m+[m
+     @staticmethod[m
+     def update_beneficio(id_beneficio: int, data: dict) -> dict:[m
+         try:[m
+[1mdiff --git a/controllers/poliza_controller.py b/controllers/poliza_controller.py[m
+[1mindex bf1191b..2c56ae4 100644[m
+[1m--- a/controllers/poliza_controller.py[m
+[1m+++ b/controllers/poliza_controller.py[m
+[36m@@ -28,6 +28,13 @@[m [mclass PolizaController:[m
+         except Exception as e:[m
+             return {"ok": False, "error": str(e)}[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_polizas_by_asegurado(id_asegurado: int) -> dict:[m
+[32m+[m[32m        try:[m
+[32m+[m[32m            return {"ok": True, "data": PolizaService.get_by_asegurado(id_asegurado)}[m
+[32m+[m[32m        except Exception as e:[m
+[32m+[m[32m            return {"ok": False, "error": str(e)}[m
+[32m+[m
+     @staticmethod[m
+     def update_poliza(id_poliza: int, data: dict) -> dict:[m
+         try:[m
+[1mdiff --git a/controllers/seguimiento_controller.py b/controllers/seguimiento_controller.py[m
+[1mindex bef9d2f..22dc134 100644[m
+[1m--- a/controllers/seguimiento_controller.py[m
+[1m+++ b/controllers/seguimiento_controller.py[m
+[36m@@ -28,6 +28,13 @@[m [mclass SeguimientoController:[m
+         except Exception as e:[m
+             return {"ok": False, "error": str(e)}[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_seguimientos_by_asegurado(id_asegurado: int) -> dict:[m
+[32m+[m[32m        try:[m
+[32m+[m[32m            return {"ok": True, "data": SeguimientoService.get_by_asegurado(id_asegurado)}[m
+[32m+[m[32m        except Exception as e:[m
+[32m+[m[32m            return {"ok": False, "error": str(e)}[m
+[32m+[m
+     @staticmethod[m
+     def update_seguimiento(id_seguimiento: int, data: dict) -> dict:[m
+         try:[m
+[1mdiff --git a/main.py b/main.py[m
+[1mindex e708656..1ea1f32 100644[m
+[1m--- a/main.py[m
+[1m+++ b/main.py[m
+[36m@@ -1,16 +1,45 @@[m
+ """Punto de entrada de la aplicación."""[m
+ [m
+ import flet as ft[m
+[31m-from views.login_view import create_login_view[m
+[31m-[m
+[32m+[m[32mfrom views.login_view import LoginView[m
+ [m
+ [m
+ def main(page: ft.Page) -> None:[m
+[31m-    page.title = "Gestión de seguros"[m
+[31m-    page.window_width = 900[m
+[31m-    page.window_height = 650[m
+[31m-    page.vertical_alignment = ft.MainAxisAlignment.CENTER[m
+[31m-    page.add(create_login_view(page))[m
+[32m+[m[32m    page.title = "The Architectural Trust — Insurance Portal"[m
+[32m+[m[32m    page.window.width = 1100[m
+[32m+[m[32m    page.window.height = 720[m
+[32m+[m[32m    page.window.min_width = 900[m
+[32m+[m[32m    page.window.min_height = 650[m
+[32m+[m[32m    page.bgcolor = ft.Colors.with_opacity(1, "#0F1117")[m
+[32m+[m[32m    page.padding = 0[m
+[32m+[m
+[32m+[m[32m    def navigate(route: str, **kwargs) -> None:[m
+[32m+[m[32m        """Navega a una ruta reemplazando el contenido de la página."""[m
+[32m+[m[32m        page.controls.clear()[m
+[32m+[m[32m        if route == "/login":[m
+[32m+[m[32m            from views.login_view import LoginView[m
+[32m+[m[32m            page.add(LoginView(page, navigate).build())[m
+[32m+[m[32m        elif route == "/dashboard":[m
+[32m+[m[32m            from views.dashboard_view import DashboardView[m
+[32m+[m[32m            page.add(DashboardView(page, navigate).build())[m
+[32m+[m[32m        elif route == "/asegurado/detalle":[m
+[32m+[m[32m            from views.asegurado.detalle_view import DetalleAseguradoView[m
+[32m+[m[32m            id_asegurado = kwargs.get("id_asegurado")[m
+[32m+[m[32m            page.add(DetalleAseguradoView(page, navigate, id_asegurado).build())[m
+[32m+[m[32m        elif route == "/clientes":[m
+[32m+[m[32m            from views.asegurado.lista_view import ListaAseguradoView[m
+[32m+[m[32m            page.add(ListaAseguradoView(page, navigate).build())[m
+[32m+[m[32m        elif route == "/asegurado/nuevo":[m
+[32m+[m[32m            from views.asegurado.formulario_view import FormularioAseguradoView[m
+[32m+[m[32m            page.add(FormularioAseguradoView(page, navigate, asegurado=None).build())[m
+[32m+[m[32m        elif route == "/asegurado/editar":[m
+[32m+[m[32m            from views.asegurado.formulario_view import FormularioAseguradoView[m
+[32m+[m[32m            asegurado = kwargs.get("asegurado")[m
+[32m+[m[32m            page.add(FormularioAseguradoView(page, navigate, asegurado=asegurado).build())[m
+[32m+[m[32m        page.update()[m
+[32m+[m
+[32m+[m[32m    navigate("/login")[m
+[32m+[m
+ [m
+ if __name__ == "__main__":[m
+[31m-    ft.run(main)[m
+\ No newline at end of file[m
+[32m+[m[32m    ft.run(main)[m
+[1mdiff --git a/repositories/asegurado_repository.py b/repositories/asegurado_repository.py[m
+[1mindex 0c4f976..df8fcc8 100644[m
+[1m--- a/repositories/asegurado_repository.py[m
+[1m+++ b/repositories/asegurado_repository.py[m
+[36m@@ -1,6 +1,6 @@[m
+ from datetime import datetime[m
+ [m
+[31m-from sqlmodel import select[m
+[32m+[m[32mfrom sqlmodel import select, or_[m
+ [m
+ from config.database import create_session[m
+ from models.asegurado import Asegurado[m
+[36m@@ -26,6 +26,30 @@[m [mclass AseguradoRepository:[m
+         with create_session() as session:[m
+             return session.exec(select(Asegurado).where(Asegurado.rfc == rfc, Asegurado.deleted_at == None)).first()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def search_by_nombre_or_rfc(query: str) -> list[Asegurado]:[m
+[32m+[m[32m        with create_session() as session:[m
+[32m+[m[32m            q = f"%{query}%"[m
+[32m+[m[32m            statement = select(Asegurado).where([m
+[32m+[m[32m                Asegurado.deleted_at == None,[m
+[32m+[m[32m                or_([m
+[32m+[m[32m                    Asegurado.nombre.like(q),[m
+[32m+[m[32m                    Asegurado.apellido_paterno.like(q),[m
+[32m+[m[32m                    Asegurado.apellido_materno.like(q),[m
+[32m+[m[32m                    Asegurado.rfc.like(q),[m
+[32m+[m[32m                )[m
+[32m+[m[32m            )[m
+[32m+[m[32m            return list(session.exec(statement).all())[m
+[32m+[m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_agente(id_agente: int) -> list[Asegurado]:[m
+[32m+[m[32m        with create_session() as session:[m
+[32m+[m[32m            statement = select(Asegurado).where([m
+[32m+[m[32m                Asegurado.id_agente_responsable == id_agente,[m
+[32m+[m[32m                Asegurado.deleted_at == None,[m
+[32m+[m[32m            )[m
+[32m+[m[32m            return list(session.exec(statement).all())[m
+[32m+[m
+     @staticmethod[m
+     def get_all() -> list[Asegurado]:[m
+         with create_session() as session:[m
+[1mdiff --git a/repositories/beneficiario_repository.py b/repositories/beneficiario_repository.py[m
+[1mindex 716a203..336c7e3 100644[m
+[1m--- a/repositories/beneficiario_repository.py[m
+[1m+++ b/repositories/beneficiario_repository.py[m
+[36m@@ -27,6 +27,15 @@[m [mclass BeneficiarioRepository:[m
+         with create_session() as session:[m
+             return session.exec(select(Beneficiario).where(Beneficiario.deleted_at == None)).all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_asegurado(id_asegurado: int) -> list[Beneficiario]:[m
+[32m+[m[32m        with create_session() as session:[m
+[32m+[m[32m            statement = select(Beneficiario).where([m
+[32m+[m[32m                Beneficiario.id_asegurado == id_asegurado,[m
+[32m+[m[32m                Beneficiario.deleted_at == None,[m
+[32m+[m[32m            )[m
+[32m+[m[32m            return list(session.exec(statement).all())[m
+[32m+[m
+     @staticmethod[m
+     def update(id_beneficiario: int, updated_data: dict) -> Beneficiario | None:[m
+         with create_session() as session:[m
+[1mdiff --git a/repositories/beneficio_repository.py b/repositories/beneficio_repository.py[m
+[1mindex 434c1a6..07d2fcb 100644[m
+[1m--- a/repositories/beneficio_repository.py[m
+[1m+++ b/repositories/beneficio_repository.py[m
+[36m@@ -27,6 +27,14 @@[m [mclass BeneficioRepository:[m
+         with create_session() as session:[m
+             return session.exec(select(Beneficio).where(Beneficio.deleted_at == None)).all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_poliza(id_poliza: int) -> list[Beneficio]:[m
+[32m+[m[32m        with create_session() as session:[m
+[32m+[m[32m            statement = select(Beneficio).where([m
+[32m+[m[32m                Beneficio.id_poliza == id_poliza, Beneficio.deleted_at == None[m
+[32m+[m[32m            )[m
+[32m+[m[32m            return list(session.exec(statement).all())[m
+[32m+[m
+     @staticmethod[m
+     def update(id_beneficio: int, updated_data: dict) -> Beneficio | None:[m
+         with create_session() as session:[m
+[1mdiff --git a/repositories/poliza_repository.py b/repositories/poliza_repository.py[m
+[1mindex ceb87ea..95ff70e 100644[m
+[1m--- a/repositories/poliza_repository.py[m
+[1m+++ b/repositories/poliza_repository.py[m
+[36m@@ -32,6 +32,14 @@[m [mclass PolizaRepository:[m
+         with create_session() as session:[m
+             return session.exec(select(Poliza).where(Poliza.deleted_at == None)).all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_asegurado(id_asegurado: int) -> list[Poliza]:[m
+[32m+[m[32m        with create_session() as session:[m
+[32m+[m[32m            statement = select(Poliza).where([m
+[32m+[m[32m                Poliza.id_asegurado == id_asegurado, Poliza.deleted_at == None[m
+[32m+[m[32m            )[m
+[32m+[m[32m            return list(session.exec(statement).all())[m
+[32m+[m
+     @staticmethod[m
+     def update(id_poliza: int, updated_data: dict) -> Poliza | None:[m
+         with create_session() as session:[m
+[1mdiff --git a/repositories/seguimiento_repository.py b/repositories/seguimiento_repository.py[m
+[1mindex c4f90d7..0f1aef4 100644[m
+[1m--- a/repositories/seguimiento_repository.py[m
+[1m+++ b/repositories/seguimiento_repository.py[m
+[36m@@ -27,6 +27,15 @@[m [mclass SeguimientoRepository:[m
+         with create_session() as session:[m
+             return session.exec(select(Seguimiento).where(Seguimiento.deleted_at == None)).all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_asegurado(id_asegurado: int) -> list[Seguimiento]:[m
+[32m+[m[32m        with create_session() as session:[m
+[32m+[m[32m            statement = select(Seguimiento).where([m
+[32m+[m[32m                Seguimiento.id_asegurado == id_asegurado,[m
+[32m+[m[32m                Seguimiento.deleted_at == None,[m
+[32m+[m[32m            ).order_by(Seguimiento.fecha_hora.desc())[m
+[32m+[m[32m            return list(session.exec(statement).all())[m
+[32m+[m
+     @staticmethod[m
+     def update(id_seguimiento: int, updated_data: dict) -> Seguimiento | None:[m
+         with create_session() as session:[m
+[1mdiff --git a/services/asegurado_service.py b/services/asegurado_service.py[m
+[1mindex e9b04f7..bed893b 100644[m
+[1m--- a/services/asegurado_service.py[m
+[1m+++ b/services/asegurado_service.py[m
+[36m@@ -30,6 +30,14 @@[m [mclass AseguradoService:[m
+     def get_all() -> list[Asegurado]:[m
+         return AseguradoRepository.get_all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def search(query: str) -> list[Asegurado]:[m
+[32m+[m[32m        return AseguradoRepository.search_by_nombre_or_rfc(query)[m
+[32m+[m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_agente(id_agente: int) -> list[Asegurado]:[m
+[32m+[m[32m        return AseguradoRepository.get_by_agente(id_agente)[m
+[32m+[m
+     @staticmethod[m
+     def update(id_asegurado: int, data: dict) -> Asegurado | None:[m
+         if "correo" in data:[m
+[1mdiff --git a/services/auth_service.py b/services/auth_service.py[m
+[1mindex 1f3c6f4..8b329b8 100644[m
+[1m--- a/services/auth_service.py[m
+[1m+++ b/services/auth_service.py[m
+[36m@@ -18,6 +18,15 @@[m [mdef login_agente(clave_agente: str, password: str):[m
+     return agente[m
+ [m
+ [m
+[32m+[m[32mdef login_agente_por_clave(clave_agente: str):[m
+[32m+[m[32m    """Autenticación solo por clave de agente (sin contraseña)."""[m
+[32m+[m[32m    validar_requerido(clave_agente, "clave_agente")[m
+[32m+[m[32m    agente = AgenteRepository.get_agente_by_clave(clave_agente)[m
+[32m+[m[32m    if not agente:[m
+[32m+[m[32m        return None[m
+[32m+[m[32m    return agente[m
+[32m+[m
+[32m+[m
+ def authenticate(clave_agente: str, password: str) -> bool:[m
+     """Compatibilidad con el flujo actual de login en Flet."""[m
+     return login_agente(clave_agente, password) is not None[m
+[1mdiff --git a/services/beneficiario_service.py b/services/beneficiario_service.py[m
+[1mindex 06dfbdf..af7c445 100644[m
+[1m--- a/services/beneficiario_service.py[m
+[1m+++ b/services/beneficiario_service.py[m
+[36m@@ -19,6 +19,10 @@[m [mclass BeneficiarioService:[m
+     def get_all() -> list[Beneficiario]:[m
+         return BeneficiarioRepository.get_all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_asegurado(id_asegurado: int) -> list[Beneficiario]:[m
+[32m+[m[32m        return BeneficiarioRepository.get_by_asegurado(id_asegurado)[m
+[32m+[m
+     @staticmethod[m
+     def update(id_beneficiario: int, data: dict) -> Beneficiario | None:[m
+         if "porcentaje_participacion" in data:[m
+[1mdiff --git a/services/beneficio_service.py b/services/beneficio_service.py[m
+[1mindex b1c1ab8..33f4887 100644[m
+[1m--- a/services/beneficio_service.py[m
+[1m+++ b/services/beneficio_service.py[m
+[36m@@ -19,6 +19,10 @@[m [mclass BeneficioService:[m
+     def get_all() -> list[Beneficio]:[m
+         return BeneficioRepository.get_all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_poliza(id_poliza: int) -> list[Beneficio]:[m
+[32m+[m[32m        return BeneficioRepository.get_by_poliza(id_poliza)[m
+[32m+[m
+     @staticmethod[m
+     def update(id_beneficio: int, data: dict) -> Beneficio | None:[m
+         if "monto_cobertura" in data:[m
+[1mdiff --git a/services/poliza_service.py b/services/poliza_service.py[m
+[1mindex f5134fa..1ff4220 100644[m
+[1m--- a/services/poliza_service.py[m
+[1m+++ b/services/poliza_service.py[m
+[36m@@ -24,6 +24,10 @@[m [mclass PolizaService:[m
+     def get_all() -> list[Poliza]:[m
+         return PolizaRepository.get_all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_asegurado(id_asegurado: int) -> list[Poliza]:[m
+[32m+[m[32m        return PolizaRepository.get_by_asegurado(id_asegurado)[m
+[32m+[m
+     @staticmethod[m
+     def update(id_poliza: int, data: dict) -> Poliza | None:[m
+         fecha_inicio = data.get("fecha_inicio")[m
+[1mdiff --git a/services/seguimiento_service.py b/services/seguimiento_service.py[m
+[1mindex 6ca47a5..d438415 100644[m
+[1m--- a/services/seguimiento_service.py[m
+[1m+++ b/services/seguimiento_service.py[m
+[36m@@ -19,6 +19,10 @@[m [mclass SeguimientoService:[m
+     def get_all() -> list[Seguimiento]:[m
+         return SeguimientoRepository.get_all()[m
+ [m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def get_by_asegurado(id_asegurado: int) -> list[Seguimiento]:[m
+[32m+[m[32m        return SeguimientoRepository.get_by_asegurado(id_asegurado)[m
+[32m+[m
+     @staticmethod[m
+     def update(id_seguimiento: int, data: dict) -> Seguimiento | None:[m
+         return SeguimientoRepository.update(id_seguimiento, data)[m
+[1mdiff --git a/services/session_manager.py b/services/session_manager.py[m
+[1mindex 88bca03..2ae9798 100644[m
+[1m--- 

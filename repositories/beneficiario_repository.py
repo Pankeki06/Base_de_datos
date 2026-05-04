@@ -37,6 +37,25 @@ class BeneficiarioRepository:
             return list(session.exec(statement).all())
 
     @staticmethod
+    def get_total_porcentaje_by_asegurado(
+        id_asegurado: int,
+        *,
+        id_poliza: int | None = None,
+        exclude_id: int | None = None,
+    ) -> float:
+        with create_session() as session:
+            statement = select(Beneficiario).where(
+                Beneficiario.id_asegurado == id_asegurado,
+                Beneficiario.deleted_at == None,
+            )
+            if id_poliza is not None:
+                statement = statement.where(Beneficiario.id_poliza == id_poliza)
+            if exclude_id is not None:
+                statement = statement.where(Beneficiario.id_beneficiario != exclude_id)
+            beneficiarios = session.exec(statement).all()
+            return float(sum(beneficiario.porcentaje_participacion for beneficiario in beneficiarios))
+
+    @staticmethod
     def update(id_beneficiario: int, updated_data: dict) -> Beneficiario | None:
         with create_session() as session:
             entity = session.exec(
@@ -46,6 +65,7 @@ class BeneficiarioRepository:
                 return None
             for key, value in updated_data.items():
                 setattr(entity, key, value)
+            entity.updated_at = datetime.now()
             session.add(entity)
             session.commit()
             session.refresh(entity)
@@ -59,7 +79,6 @@ class BeneficiarioRepository:
             ).first()
             if not entity:
                 return False
-            entity.activo = False
             entity.deleted_at = datetime.now()
             session.add(entity)
             session.commit()

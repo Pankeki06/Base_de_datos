@@ -1,15 +1,21 @@
 """Servicio para el manejo de sesión en memoria."""
 
+import threading
+
+_lock: threading.Lock = threading.Lock()
 SESSION_STATE: dict = {}
 
 
 def guardar_sesion(agente) -> None:
-    SESSION_STATE["agente"] = agente
+    with _lock:
+        SESSION_STATE["agente"] = agente
 
 
 def obtener_agente():
-    return SESSION_STATE.get("agente")
+    with _lock:
+        return SESSION_STATE.get("agente")
 
 
 def cerrar_sesion() -> None:
-    SESSION_STATE.clear()
+    with _lock:
+        SESSION_STATE.clear()

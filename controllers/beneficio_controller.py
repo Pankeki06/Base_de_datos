@@ -29,7 +29,20 @@ class BeneficioController:
     @staticmethod
     def get_beneficios_by_poliza(id_poliza: int) -> dict:
         try:
-            return {"ok": True, "data": BeneficioService.get_by_poliza(id_poliza)}
+            return {
+                "ok": True,
+                "data": BeneficioService.get_by_poliza(id_poliza, include_inactive=True),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def get_beneficios_by_poliza_admin(id_poliza: int) -> dict:
+        try:
+            return {
+                "ok": True,
+                "data": BeneficioService.get_by_poliza(id_poliza, include_inactive=True),
+            }
         except Exception as e:
             return {"ok": False, "error": str(e)}
 

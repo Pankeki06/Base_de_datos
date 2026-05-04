@@ -1,5 +1,5 @@
 import flet as ft
-from views.login_view import create_login_view
+from views.login_view import LoginView, create_login_view
 
 
 class DummyPage:
@@ -13,6 +13,15 @@ class DummyPage:
 
     def add(self, control):
         self.controls.append(control)
+
+
+class FocusPage(DummyPage):
+    def __init__(self):
+        super().__init__()
+        self.run_task_calls = []
+
+    def run_task(self, handler, *args, **kwargs):
+        self.run_task_calls.append((handler, args, kwargs))
 
 
 def test_login_view_shows_login_fields_and_button():
@@ -32,7 +41,7 @@ def test_login_view_shows_login_fields_and_button():
     assert isinstance(login_view, ft.Column)
     assert any(isinstance(control, ft.TextField) and control.label == "Clave de agente" for control in login_view.controls)
     assert any(isinstance(control, ft.TextField) and control.label == "Contraseña" for control in login_view.controls)
-    assert any(isinstance(control, ft.ElevatedButton) for control in login_view.controls)
+    assert any(isinstance(control, ft.Button) for control in login_view.controls)
 
     # Llenar los campos de texto como lo haría el usuario
     username_field = next(control for control in login_view.controls if isinstance(control, ft.TextField) and control.label == "Clave de agente")
@@ -40,6 +49,20 @@ def test_login_view_shows_login_fields_and_button():
     username_field.value = "user123"
     password_field.value = "pass123"
 
-    login_button = next(control for control in login_view.controls if isinstance(control, ft.ElevatedButton))
+    login_button = next(control for control in login_view.controls if isinstance(control, ft.Button))
     login_button.on_click(None)
     assert clicked["called"] is True
+
+
+def test_login_view_programa_focus_con_run_task():
+    page = FocusPage()
+    view = LoginView(page, lambda *_args, **_kwargs: None)
+    control = ft.TextField(label="Contraseña")
+
+    view._focus_control(control)
+
+    assert len(page.run_task_calls) == 1
+    scheduled, args, kwargs = page.run_task_calls[0]
+    assert scheduled == control.focus
+    assert args == ()
+    assert kwargs == {}

@@ -4,36 +4,17 @@ from __future__ import annotations
 
 import flet as ft
 from controllers.asegurado_controller import AseguradoController
-
-_BG = "#0F1117"
-_SIDEBAR = "#13161F"
-_CARD = "#1A1D27"
-_ACCENT = "#00C17C"
-_TEXT = "#E8EAF0"
-_MUTED = "#6B7280"
-_BORDER = "#2D3148"
-_ERROR = "#EF4444"
-
-
-def _field(label: str, value: str = "", hint: str = "",
-           keyboard_type: ft.KeyboardType = ft.KeyboardType.TEXT,
-           expand: int | None = None) -> ft.TextField:
-    kwargs = {}
-    if expand is not None:
-        kwargs["expand"] = expand
-    return ft.TextField(
-        label=label,
-        value=value,
-        hint_text=hint,
-        border_color=_BORDER,
-        focused_border_color=_ACCENT,
-        label_style=ft.TextStyle(color=_MUTED),
-        text_style=ft.TextStyle(color=_TEXT),
-        bgcolor=_CARD,
-        keyboard_type=keyboard_type,
-        cursor_color=_ACCENT,
-        **kwargs,
-    )
+from controllers.poliza_controller import PolizaController
+from views.theme import (
+    ACCENT as _ACCENT,
+    BG as _BG,
+    BORDER as _BORDER,
+    CARD as _CARD,
+    ERROR as _ERROR,
+    MUTED as _MUTED,
+    TEXT as _TEXT,
+)
+from views.ui_controls import app_sidebar, modal_dialog, styled_dropdown as _dropdown, styled_text_field as _field
 
 
 class FormularioAseguradoView:
@@ -45,11 +26,10 @@ class FormularioAseguradoView:
         self._errors: dict[str, ft.Text] = {}
 
     def build(self) -> ft.Control:
-        from views.dashboard_view import _sidebar
         from services.session_manager import obtener_agente
         agente = obtener_agente()
         nombre_agente = f"{agente.nombre} {agente.apellido_paterno}" if agente else "Agente"
-        sidebar = _sidebar(self._navigate, "/clientes")
+        sidebar = app_sidebar(self._navigate, "/clientes")
         main = self._build_form()
         return ft.Container(
             content=ft.Row([sidebar, main], spacing=0, expand=True),
@@ -73,6 +53,148 @@ class FormularioAseguradoView:
             t.value = ""
             t.visible = False
 
+    def _show_post_save_options(self, id_asegurado: int) -> None:
+        def _go_asignaciones(e):
+            self._page.pop_dialog()
+            self._navigate("/asegurado/asignaciones", id_asegurado=id_asegurado)
+
+        dlg = modal_dialog(
+            "Siguiente paso recomendado",
+            ft.Column(
+                [
+                    ft.Text(
+                        "El asegurado ya quedó registrado. Continúa en Asignaciones para seguir el orden pólizas, luego beneficiarios y por último beneficios.",
+                        size=13,
+                        color=_MUTED,
+                    ),
+                ],
+                tight=True,
+                spacing=10,
+            ),
+            [
+                ft.TextButton(
+                    "Volver a clientes",
+                    style=ft.ButtonStyle(color=_MUTED),
+                    on_click=lambda e: (
+                        self._page.pop_dialog(),
+                        self._navigate("/clientes"),
+                    ),
+                ),
+                ft.FilledButton(
+                    "Ir a Asignaciones",
+                    style=ft.ButtonStyle(bgcolor=_ACCENT, color="#000000"),
+                    on_click=_go_asignaciones,
+                ),
+            ],
+            width=420,
+        )
+        self._page.show_dialog(dlg)
+
+    def _open_link_to_existing_poliza_modal(self, id_asegurado: int) -> None:
+        result = PolizaController.get_available_polizas_for_participante(id_asegurado)
+        if not result["ok"]:
+            self._show_post_save_options(id_asegurado)
+            return
+
+        polizas = result.get("data", [])
+        if not polizas:
+            dlg_empty = modal_dialog(
+                "Sin pólizas disponibles",
+                ft.Text(
+                    "No hay pólizas activas disponibles para vincular. Puedes crear una nueva póliza desde la pantalla de asignaciones del asegurado.",
+                    color=_MUTED,
+                    size=12,
+                ),
+                [
+                    ft.TextButton(
+                        "Cerrar",
+                        style=ft.ButtonStyle(color=_MUTED),
+                        on_click=lambda e: (
+                            self._page.pop_dialog(),
+                            self._show_post_save_options(id_asegurado),
+                        ),
+                    ),
+                    ft.FilledButton(
+                        "Ir a asignaciones",
+                        style=ft.ButtonStyle(bgcolor=_ACCENT, color="#000000"),
+                        on_click=lambda e: (
+                            self._page.pop_dialog(),
+                            self._navigate("/asegurado/asignaciones", id_asegurado=id_asegurado),
+                        ),
+                    ),
+                ],
+            )
+            self._page.show_dialog(dlg_empty)
+            return
+
+        poliza_dd = _dropdown(
+            label="Póliza activa",
+            options=[
+                ft.dropdown.Option(
+                    key=str(p.id_poliza),
+                    text=f"{p.numero_poliza}",
+                )
+                for p in polizas
+            ],
+        )
+        tipo_dd = _dropdown(
+            label="Tipo de participante",
+            value="dependiente",
+            options=[
+                ft.dropdown.Option(key="conyuge", text="Cónyuge"),
+                ft.dropdown.Option(key="hijo", text="Hijo"),
+                ft.dropdown.Option(key="dependiente", text="Dependiente"),
+            ],
+        )
+        err_t = ft.Text("", color=_ERROR, size=12)
+
+        def _save_link(e):
+            if not poliza_dd.value:
+                err_t.value = "Selecciona una póliza para continuar."
+                self._page.update()
+                return
+
+            link_res = PolizaController.add_participante_to_poliza(
+                {
+                    "id_poliza": int(poliza_dd.value),
+                    "id_asegurado": id_asegurado,
+                    "tipo_participante": tipo_dd.value or "dependiente",
+                }
+            )
+            if not link_res["ok"]:
+                err_t.value = link_res.get("error", "No fue posible vincular al asegurado.")
+                self._page.update()
+                return
+
+            self._page.pop_dialog()
+            self._navigate("/asegurado/asignaciones", id_asegurado=id_asegurado)
+
+        dlg = modal_dialog(
+            "Vincular a póliza existente",
+            ft.Column(
+                [poliza_dd, tipo_dd, err_t],
+                spacing=12,
+                tight=True,
+            ),
+            [
+                ft.TextButton(
+                    "Atrás",
+                    style=ft.ButtonStyle(color=_MUTED),
+                    on_click=lambda e: (
+                        self._page.pop_dialog(),
+                        self._show_post_save_options(id_asegurado),
+                    ),
+                ),
+                ft.FilledButton(
+                    "Vincular",
+                    style=ft.ButtonStyle(bgcolor=_ACCENT, color="#000000"),
+                    on_click=_save_link,
+                ),
+            ],
+            width=420,
+        )
+        self._page.show_dialog(dlg)
+
     def _build_form(self) -> ft.Container:
         a = self._asegurado
         title = "Editar asegurado" if self._editing else "Nuevo asegurado"
@@ -81,13 +203,15 @@ class FormularioAseguradoView:
         nombre_f = _field("Nombre *", a.nombre if a else "")
         ap_f = _field("Apellido paterno *", a.apellido_paterno if a else "")
         am_f = _field("Apellido materno *", a.apellido_materno if a else "")
-        rfc_f = _field("RFC *", a.rfc if a else "", hint="Ej. GOME850412H19")
+        rfc_f = _field("RFC *", a.rfc if a else "", hint="Ej. GOME850412H19",
+                       max_length=13)
         correo_f = _field("Correo electrónico", a.correo or "" if a else "",
                           hint="usuario@correo.com",
                           keyboard_type=ft.KeyboardType.EMAIL)
         celular_f = _field("Celular (10 dígitos)", a.celular or "" if a else "",
                            hint="5512345678",
-                           keyboard_type=ft.KeyboardType.PHONE)
+                           keyboard_type=ft.KeyboardType.PHONE,
+                           max_length=10)
 
         # ── Dirección
         calle_f = _field("Calle *", a.calle if a else "")
@@ -114,7 +238,7 @@ class FormularioAseguradoView:
                 padding=20,
                 bgcolor=_CARD,
                 border_radius=12,
-                border=ft.border.all(1, _BORDER),
+                border=ft.Border.all(1, _BORDER),
             )
 
         info_card = section_card(
@@ -152,11 +276,17 @@ class FormularioAseguradoView:
         def on_guardar(e):
             self._clear_errors()
             global_err.value = ""
+            import re as _re
+            rfc_val = rfc_f.value.strip().upper()
+            if not _re.fullmatch(r"[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}", rfc_val):
+                self._set_err("rfc", "El RFC no tiene un formato válido (ej. GOME850412H19).")
+                self._page.update()
+                return
             data = {
                 "nombre": nombre_f.value.strip(),
                 "apellido_paterno": ap_f.value.strip(),
                 "apellido_materno": am_f.value.strip(),
-                "rfc": rfc_f.value.strip().upper(),
+                "rfc": rfc_val,
                 "correo": correo_f.value.strip() or None,
                 "celular": celular_f.value.strip() or None,
                 "calle": calle_f.value.strip(),
@@ -185,7 +315,7 @@ class FormularioAseguradoView:
                         id_asegurado=result["data"].id_asegurado,
                     )
                 else:
-                    self._navigate("/clientes")
+                    self._show_post_save_options(result["data"].id_asegurado)
             else:
                 err = result["error"]
                 # Map field-level errors
@@ -212,13 +342,13 @@ class FormularioAseguradoView:
                     global_err.value = err
                 self._page.update()
 
-        btn_guardar = ft.ElevatedButton(
+        btn_guardar = ft.Button(
             content=ft.Text("Guardar asegurado" if not self._editing else "Actualizar", size=14),
             style=ft.ButtonStyle(
                 bgcolor={ft.ControlState.DEFAULT: _ACCENT},
                 color={ft.ControlState.DEFAULT: "#000000"},
                 shape=ft.RoundedRectangleBorder(radius=8),
-                padding=ft.padding.symmetric(horizontal=24, vertical=12),
+                padding=ft.Padding.symmetric(horizontal=24, vertical=12),
             ),
             on_click=on_guardar,
         )
@@ -228,7 +358,7 @@ class FormularioAseguradoView:
                 color=_MUTED,
                 side={ft.ControlState.DEFAULT: ft.BorderSide(1, _BORDER)},
                 shape=ft.RoundedRectangleBorder(radius=8),
-                padding=ft.padding.symmetric(horizontal=24, vertical=12),
+                padding=ft.Padding.symmetric(horizontal=24, vertical=12),
             ),
             on_click=lambda e: (
                 self._navigate("/asegurado/detalle",
@@ -254,8 +384,8 @@ class FormularioAseguradoView:
                 spacing=16,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.padding.symmetric(horizontal=28, vertical=20),
-            border=ft.border.only(bottom=ft.BorderSide(1, _BORDER)),
+            padding=ft.Padding.symmetric(horizontal=28, vertical=20),
+            border=ft.Border.only(bottom=ft.BorderSide(1, _BORDER)),
         )
 
         return ft.Container(
@@ -276,7 +406,7 @@ class FormularioAseguradoView:
                             spacing=16,
                             scroll=ft.ScrollMode.AUTO,
                         ),
-                        padding=ft.padding.symmetric(horizontal=28, vertical=20),
+                        padding=ft.Padding.symmetric(horizontal=28, vertical=20),
                         expand=True,
                     ),
                 ],

@@ -1,18 +1,24 @@
 from models.agente import Agente
 from repositories.agente_repository import AgenteRepository
 from services.security import hash_password
-from services.validators import validar_correo, validar_requerido
+from services.validators import validar_correo, validar_password, validar_requerido, validar_telefono
 
 
 class AgenteService:
     @staticmethod
     def create(data: dict) -> Agente:
         validar_requerido(data.get("clave_agente", ""), "clave_agente")
+        validar_requerido(data.get("cedula", ""), "cedula")
         validar_requerido(data.get("nombre", ""), "nombre")
         validar_requerido(data.get("apellido_paterno", ""), "apellido_paterno")
         validar_requerido(data.get("apellido_materno", ""), "apellido_materno")
+        validar_requerido(data.get("rol", ""), "rol")
         validar_requerido(data.get("password", ""), "password")
+        validar_password(data.get("password", ""))
         validar_correo(data.get("correo"))
+        validar_telefono(data.get("telefono"), "telefono")
+        if data.get("rol") not in {"admin", "agente"}:
+            raise ValueError("El rol debe ser 'admin' o 'agente'.")
 
         if AgenteRepository.get_agente_by_clave(data["clave_agente"]):
             raise ValueError("La clave de agente ya está registrada.")
@@ -37,7 +43,13 @@ class AgenteService:
         payload = data.copy()
         if "correo" in payload:
             validar_correo(payload["correo"])
+            existing = AgenteRepository.get_agente_by_correo(payload["correo"])
+            if existing and existing.id_agente != id_agente:
+                raise ValueError("El correo ya está registrado por otro agente.")
+        if "telefono" in payload:
+            validar_telefono(payload.get("telefono"), "telefono")
         if "password" in payload and payload["password"]:
+            validar_password(payload["password"])
             payload["password"] = hash_password(payload["password"])
         return AgenteRepository.update_agente(id_agente, payload)
 

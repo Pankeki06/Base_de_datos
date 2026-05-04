@@ -1,102 +1,54 @@
 """Dashboard principal."""
 
 from __future__ import annotations
-from datetime import date
+import logging
+from datetime import date, timedelta
 
 import flet as ft
 from controllers.asegurado_controller import AseguradoController
 from controllers.poliza_controller import PolizaController
+from controllers.producto_poliza_controller import ProductoPolizaController
+from controllers.seguimiento_controller import SeguimientoController
 from services.session_manager import obtener_agente, cerrar_sesion
-
-_BG = "#0F1117"
-_SIDEBAR = "#13161F"
-_CARD = "#1A1D27"
-_CARD2 = "#1E2235"
-_ACCENT = "#00C17C"
-_TEXT = "#E8EAF0"
-_MUTED = "#6B7280"
-_BORDER = "#2D3148"
-_ERROR = "#EF4444"
-_WARN = "#F59E0B"
-_BLUE = "#3B82F6"
+from views.theme import (
+    ACCENT as _ACCENT,
+    BG as _BG,
+    BLUE as _BLUE,
+    BORDER as _BORDER,
+    CARD as _CARD,
+    CARD_ALT as _CARD2,
+    ERROR as _ERROR,
+    MUTED as _MUTED,
+    SIDEBAR as _SIDEBAR,
+    TEXT as _TEXT,
+    WARN as _WARN,
+)
+from views.ui_controls import app_sidebar as _app_sidebar, pill as _pill
 
 
 # ─── Sidebar icon-only ───────────────────────────────────────────────────────
 def _sidebar(navigate, ruta_activa: str = "/dashboard") -> ft.Container:
-    def _on_logout(e):
-        cerrar_sesion()
-        navigate("/login")
-
-    def _btn(icon, ruta, tooltip_text):
-        activo = ruta_activa == ruta
-        return ft.Container(
-            content=ft.Icon(icon, size=20, color=_TEXT if activo else _MUTED),
-            width=48, height=48,
-            border_radius=10,
-            bgcolor=_CARD2 if activo else ft.Colors.TRANSPARENT,
-            tooltip=tooltip_text,
-            alignment=ft.Alignment.CENTER,
-            on_click=lambda e, r=ruta: navigate(r),
-        )
-
-    return ft.Container(
-        content=ft.Column(
-            [
-                ft.Container(height=16),
-                ft.Container(
-                    content=ft.Icon(ft.Icons.GRID_VIEW_ROUNDED, size=22, color=_ACCENT),
-                    width=48, height=48, border_radius=10,
-                    bgcolor=ft.Colors.with_opacity(0.15, _ACCENT),
-                    alignment=ft.Alignment.CENTER,
-                    tooltip="Inicio",
-                    on_click=lambda e: navigate("/dashboard"),
-                ),
-                ft.Container(height=4),
-                _btn(ft.Icons.PERSON_OUTLINE_ROUNDED, "/clientes", "Clientes"),
-                _btn(ft.Icons.MENU_ROUNDED, "/polizas", "Pólizas"),
-                ft.Container(expand=True),
-                ft.Container(
-                    content=ft.Icon(ft.Icons.WB_SUNNY_OUTLINED, size=18, color=_MUTED),
-                    width=48, height=48, border_radius=10,
-                    bgcolor=ft.Colors.TRANSPARENT,
-                    alignment=ft.Alignment.CENTER,
-                    tooltip="Ajustes",
-                ),
-                ft.Container(height=4),
-                ft.Container(
-                    content=ft.Icon(ft.Icons.LOGOUT_ROUNDED, size=18, color=_MUTED),
-                    width=48, height=48, border_radius=10,
-                    bgcolor=ft.Colors.TRANSPARENT,
-                    alignment=ft.Alignment.CENTER,
-                    tooltip="Cerrar sesión",
-                    on_click=_on_logout,
-                ),
-                ft.Container(height=12),
-            ],
-            spacing=4,
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            expand=True,
-        ),
-        width=64,
-        bgcolor=_SIDEBAR,
-        border=ft.border.only(right=ft.BorderSide(1, _BORDER)),
-    )
-
-
-# ─── Pills de póliza ──────────────────────────────────────────────────────────
-def _pill(label: str, color: str, bg: str) -> ft.Container:
-    return ft.Container(
-        content=ft.Text(label, size=11, color=color, weight=ft.FontWeight.W_500),
-        bgcolor=bg,
-        padding=ft.padding.symmetric(horizontal=8, vertical=3),
-        border_radius=20,
-        border=ft.border.all(1, ft.Colors.with_opacity(0.25, color)),
-    )
-
-
-def _poliza_pills(polizas: list) -> list:
+    return _app_sidebar(navigate, ruta_activa)
+def _poliza_pills(
+    polizas: list,
+    producto_map: dict | None = None,
+    participaciones: list[dict] | None = None,
+) -> list:
     if not polizas:
+        participaciones_activas = [
+            p
+            for p in (participaciones or [])
+            if p.get("tipo_participante") != "titular"
+            and p.get("estatus_poliza") == "activa"
+        ]
+        if participaciones_activas:
+            return [_pill("Cobertura derivada", _BLUE, ft.Colors.with_opacity(0.12, _BLUE))]
+
+        if participaciones:
+            return [_pill("Cobertura derivada vencida", _WARN, ft.Colors.with_opacity(0.12, _WARN))]
+
         return [_pill("Sin póliza activa", _WARN, ft.Colors.with_opacity(0.12, _WARN))]
+    producto_map = producto_map or {}
     pills = []
     tipo_colors = {
         "Vida": (_ACCENT, ft.Colors.with_opacity(0.12, _ACCENT)),
@@ -105,8 +57,10 @@ def _poliza_pills(polizas: list) -> list:
         "Salud": ("#06B6D4", ft.Colors.with_opacity(0.12, "#06B6D4")),
     }
     for p in polizas[:3]:
-        fg, bg = tipo_colors.get(p.tipo_seguro, (_MUTED, _CARD2))
-        label = p.tipo_seguro if p.estatus != "vencida" else f"{p.tipo_seguro} vencida"
+        prod = producto_map.get(p.id_producto)
+        tipo = prod.tipo_seguro if prod else "Otro"
+        fg, bg = tipo_colors.get(tipo, (_MUTED, _CARD2))
+        label = tipo if p.estatus != "vencida" else f"{tipo} vencida"
         color = _ERROR if p.estatus == "vencida" else fg
         pill_bg = ft.Colors.with_opacity(0.12, _ERROR) if p.estatus == "vencida" else bg
         pills.append(_pill(label, color, pill_bg))
@@ -114,9 +68,22 @@ def _poliza_pills(polizas: list) -> list:
 
 
 # ─── Tarjeta asegurado ────────────────────────────────────────────────────────
-def _tarjeta(asegurado, polizas: list, navigate) -> ft.Container:
+def _tarjeta(
+    asegurado,
+    polizas: list,
+    navigate,
+    producto_map: dict | None = None,
+    participaciones: list[dict] | None = None,
+    id_agente_activo: int | None = None,
+) -> ft.Container:
     nombre = (f"{asegurado.nombre} {asegurado.apellido_paterno} "
               f"{asegurado.apellido_materno}".strip())
+    badges = _poliza_pills(polizas, producto_map, participaciones)
+    if id_agente_activo is not None and getattr(asegurado, "id_agente_responsable", None) not in (None, id_agente_activo):
+        badges = [
+            _pill("Cartera externa", _BLUE, ft.Colors.with_opacity(0.12, _BLUE)),
+            *badges,
+        ]
     return ft.Container(
         content=ft.Column(
             [
@@ -125,14 +92,14 @@ def _tarjeta(asegurado, polizas: list, navigate) -> ft.Container:
                         overflow=ft.TextOverflow.ELLIPSIS),
                 ft.Text(asegurado.rfc, size=12, color=_MUTED),
                 ft.Container(height=8),
-                ft.Row(_poliza_pills(polizas), spacing=6, wrap=True),
+                ft.Row(badges, spacing=6, wrap=True),
             ],
             spacing=3,
         ),
-        padding=ft.padding.symmetric(horizontal=16, vertical=14),
+        padding=ft.Padding.symmetric(horizontal=16, vertical=14),
         bgcolor=_CARD,
         border_radius=10,
-        border=ft.border.all(1, _BORDER),
+        border=ft.Border.all(1, _BORDER),
         on_click=lambda e, aid=asegurado.id_asegurado: navigate(
             "/asegurado/detalle", id_asegurado=aid),
         ink=True,
@@ -165,7 +132,7 @@ class DashboardView:
             focused_border_color=_ACCENT,
             bgcolor=_CARD,
             border_radius=10,
-            content_padding=ft.padding.symmetric(horizontal=16, vertical=16),
+            content_padding=ft.Padding.symmetric(horizontal=16, vertical=16),
             expand=True,
             on_change=lambda e: self._on_search_change(e.control.value),
         )
@@ -208,8 +175,8 @@ class DashboardView:
                 ],
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.padding.symmetric(horizontal=28, vertical=16),
-            border=ft.border.only(bottom=ft.BorderSide(1, _BORDER)),
+            padding=ft.Padding.symmetric(horizontal=28, vertical=16),
+            border=ft.Border.only(bottom=ft.BorderSide(1, _BORDER)),
         )
 
         # Cuerpo con scroll
@@ -241,7 +208,7 @@ class DashboardView:
                 scroll=ft.ScrollMode.AUTO,
                 expand=True,
             ),
-            padding=ft.padding.symmetric(horizontal=28, vertical=20),
+            padding=ft.Padding.symmetric(horizontal=28, vertical=20),
             expand=True,
         )
 
@@ -287,13 +254,31 @@ class DashboardView:
                 ft.Text("Sin resultados para esa búsqueda.", color=_MUTED, size=13)
             )
         else:
+            try:
+                prod_res = ProductoPolizaController.get_all_productos()
+                producto_map = (
+                    {p.id_producto: p for p in prod_res.get("data", [])}
+                    if prod_res["ok"] else {}
+                )
+            except Exception:
+                logging.getLogger(__name__).exception("Error al cargar productos en búsqueda")
+                producto_map = {}
             cards = []
             for a in asegurados[:20]:
                 pol_res = PolizaController.get_polizas_by_asegurado(a.id_asegurado)
                 pols = pol_res.get("data", []) if pol_res["ok"] else []
+                part_res = PolizaController.get_participaciones_by_asegurado(a.id_asegurado)
+                participaciones = part_res.get("data", []) if part_res["ok"] else []
                 cards.append(
                     ft.Container(
-                        content=_tarjeta(a, pols, self._navigate),
+                        content=_tarjeta(
+                            a,
+                            pols,
+                            self._navigate,
+                            producto_map,
+                            participaciones,
+                            self._agente.id_agente if self._agente else None,
+                        ),
                         col={"xs": 12, "sm": 6, "md": 4},
                     )
                 )
@@ -311,9 +296,10 @@ class DashboardView:
             return ft.Text("Sin sesión activa.", color=_MUTED, size=13)
 
         try:
-            from repositories.seguimiento_repository import SeguimientoRepository
-            segs = SeguimientoRepository.get_all()
+            seg_res = SeguimientoController.get_all_seguimientos()
+            segs = seg_res.get("data", []) if seg_res["ok"] else []
         except Exception:
+            logging.getLogger(__name__).exception("Error al cargar seguimientos recientes")
             return ft.Text("Error al cargar recientes.", color=_MUTED, size=13)
 
         vistos: set[int] = set()
@@ -331,6 +317,15 @@ class DashboardView:
             return ft.Text("Sin contactos recientes.", color=_MUTED, size=13)
 
         cards = []
+        try:
+            prod_res = ProductoPolizaController.get_all_productos()
+            producto_map = (
+                {p.id_producto: p for p in prod_res.get("data", [])}
+                if prod_res["ok"] else {}
+            )
+        except Exception:
+            logging.getLogger(__name__).exception("Error al cargar productos en recientes")
+            producto_map = {}
         for aid in ids_rec:
             a_res = AseguradoController.get_asegurado_by_id(aid)
             if not a_res["ok"]:
@@ -338,9 +333,18 @@ class DashboardView:
             a = a_res["data"]
             pol_res = PolizaController.get_polizas_by_asegurado(aid)
             pols = pol_res.get("data", []) if pol_res["ok"] else []
+            part_res = PolizaController.get_participaciones_by_asegurado(aid)
+            participaciones = part_res.get("data", []) if part_res["ok"] else []
             cards.append(
                 ft.Container(
-                    content=_tarjeta(a, pols, self._navigate),
+                    content=_tarjeta(
+                        a,
+                        pols,
+                        self._navigate,
+                        producto_map,
+                        participaciones,
+                        agente.id_agente,
+                    ),
                     col={"xs": 12, "sm": 6, "md": 4},
                 )
             )
@@ -352,28 +356,31 @@ class DashboardView:
         id_agente = agente.id_agente if agente else None
 
         try:
-            from repositories.seguimiento_repository import SeguimientoRepository
-            from repositories.poliza_repository import PolizaRepository
-            from datetime import timedelta
-
-            a_res = (AseguradoController.get_asegurados_by_agente(id_agente)
-                     if id_agente else {"ok": False})
-            total_asegurados = len(a_res.get("data", [])) if a_res["ok"] else 0
-
-            segs = SeguimientoRepository.get_all()
+            seg_res = SeguimientoController.get_all_seguimientos()
+            segs = seg_res.get("data", []) if seg_res["ok"] else []
             hoy = date.today()
             segs_hoy = sum(
                 1 for s in segs
                 if s.id_agente == id_agente and s.fecha_hora.date() == hoy
             )
 
-            todas = PolizaRepository.get_all()
+            a_res = (AseguradoController.get_asegurados_by_agente(id_agente)
+                     if id_agente else {"ok": False})
+            asegurados = list(a_res.get("data", [])) if a_res["ok"] else []
+            total_asegurados = len(asegurados)
+
             limite = hoy + timedelta(days=30)
-            por_vencer = sum(
-                1 for p in todas
-                if p.estatus == "activa" and p.fecha_vencimiento <= limite
-            )
+            por_vencer = 0
+            for asegurado in asegurados:
+                pol_res = PolizaController.get_polizas_by_asegurado(asegurado.id_asegurado)
+                if not pol_res["ok"]:
+                    continue
+                por_vencer += sum(
+                    1 for poliza in pol_res.get("data", [])
+                    if poliza.estatus == "activa" and poliza.fecha_vencimiento <= limite
+                )
         except Exception:
+            logging.getLogger(__name__).exception("Error al calcular KPIs del dashboard")
             total_asegurados = segs_hoy = por_vencer = 0
 
         def _kpi(valor, etiqueta) -> ft.Container:
@@ -386,9 +393,9 @@ class DashboardView:
                     ],
                     spacing=4,
                 ),
-                padding=ft.padding.symmetric(horizontal=20, vertical=18),
+                padding=ft.Padding.symmetric(horizontal=20, vertical=18),
                 bgcolor=_CARD, border_radius=10,
-                border=ft.border.all(1, _BORDER),
+                border=ft.Border.all(1, _BORDER),
                 col={"xs": 12, "sm": 4},
             )
 

@@ -7,6 +7,7 @@ from sqlmodel import SQLModel, Field as SqlModelField
 class Agente(SQLModel, table=True):
     id_agente: int | None = SqlModelField(default=None, primary_key=True)
     clave_agente: str = SqlModelField(index=True, unique=True, max_length=100)
+    cedula: str = SqlModelField(unique=True, max_length=10)
     nombre: str = SqlModelField(max_length=100)
     apellido_paterno: str = SqlModelField(max_length=100)
     apellido_materno: str = SqlModelField(max_length=100)

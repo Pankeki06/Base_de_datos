@@ -4,6 +4,7 @@ from sqlmodel import select, or_
 
 from config.database import create_session
 from models.asegurado import Asegurado
+from models.beneficiario import Beneficiario
 
 
 class AseguradoRepository:
@@ -79,9 +80,19 @@ class AseguradoRepository:
             ).first()
             if not entity:
                 return False
-            entity.activo = False
-            entity.deleted_at = datetime.now()
-            entity.updated_at = datetime.now()
+            now = datetime.now()
+            entity.deleted_at = now
+            entity.updated_at = now
             session.add(entity)
+            # Cascade soft delete to beneficiarios
+            beneficiarios = session.exec(
+                select(Beneficiario).where(
+                    Beneficiario.id_asegurado == id_asegurado,
+                    Beneficiario.deleted_at == None,
+                )
+            ).all()
+            for b in beneficiarios:
+                b.deleted_at = now
+                session.add(b)
             session.commit()
             return True

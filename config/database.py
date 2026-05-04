@@ -1,6 +1,7 @@
 """Configuración de la conexión a la base de datos."""
 
 import os
+
 from dotenv import load_dotenv
 from sqlmodel import Session, create_engine
 
@@ -16,7 +17,14 @@ DATABASE_URL = (
     f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
-engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=3600,
+)
 
 
 def create_session() -> Session:

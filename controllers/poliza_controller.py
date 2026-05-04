@@ -36,6 +36,43 @@ class PolizaController:
             return {"ok": False, "error": str(e)}
 
     @staticmethod
+    def get_participantes_by_poliza(id_poliza: int) -> dict:
+        try:
+            return {
+                "ok": True,
+                "data": PolizaService.get_participantes_by_poliza(id_poliza),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def get_participaciones_by_asegurado(id_asegurado: int) -> dict:
+        try:
+            return {
+                "ok": True,
+                "data": PolizaService.get_participaciones_by_asegurado(id_asegurado),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def get_available_polizas_for_participante(id_asegurado: int) -> dict:
+        try:
+            return {
+                "ok": True,
+                "data": PolizaService.get_available_for_participante(id_asegurado),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def add_participante_to_poliza(data: dict) -> dict:
+        try:
+            return {"ok": True, "data": PolizaService.add_participante(data)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
     def update_poliza(id_poliza: int, data: dict) -> dict:
         try:
             entity = PolizaService.update(id_poliza, data)
