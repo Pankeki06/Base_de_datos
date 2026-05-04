@@ -1,11 +1,13 @@
 """Punto de entrada de la aplicación."""
 
 import flet as ft
+from services.session_manager import obtener_agente
 from views.login_view import LoginView
 
 
 def main(page: ft.Page) -> None:
     page.title = "The Architectural Trust — Insurance Portal"
+    page.theme_mode = ft.ThemeMode.LIGHT
     page.window.width = 1100
     page.window.height = 720
     page.window.min_width = 900
@@ -46,6 +48,14 @@ def main(page: ft.Page) -> None:
         elif route == "/polizas":
             from views.polizas.lista_view import ListaPolizasView
             page.add(ListaPolizasView(page, navigate).build())
+        elif route == "/agentes":
+            agente = obtener_agente()
+            is_admin = str(getattr(agente, "rol", "")).strip().lower() == "admin"
+            if not is_admin:
+                navigate("/dashboard")
+                return
+            from views.agentes.lista_view import ListaAgentesView
+            page.add(ListaAgentesView(page, navigate).build())
         elif route == "/asegurado/nuevo":
             from views.asegurado.formulario_view import FormularioAseguradoView
             page.add(FormularioAseguradoView(page, navigate, asegurado=None).build())

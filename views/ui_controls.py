@@ -19,6 +19,7 @@ def styled_text_field(
     kwargs.setdefault("focused_border_color", ACCENT)
     kwargs.setdefault("label_style", ft.TextStyle(color=MUTED))
     kwargs.setdefault("text_style", ft.TextStyle(color=TEXT))
+    kwargs.setdefault("hint_style", ft.TextStyle(color=MUTED))
     kwargs.setdefault("bgcolor", CARD)
     kwargs.setdefault("cursor_color", ACCENT)
     return ft.TextField(label=label, value=value, **kwargs)
@@ -34,6 +35,7 @@ def styled_dropdown(
     kwargs.setdefault("focused_border_color", ACCENT)
     kwargs.setdefault("label_style", ft.TextStyle(color=MUTED))
     kwargs.setdefault("text_style", ft.TextStyle(color=TEXT))
+    kwargs.setdefault("hint_style", ft.TextStyle(color=MUTED))
     kwargs.setdefault("bgcolor", CARD)
     return ft.Dropdown(label=label, value=value, options=options, **kwargs)
 
@@ -52,7 +54,7 @@ def app_sidebar(navigate, ruta_activa: str = "/dashboard") -> ft.Container:
     from services.session_manager import cerrar_sesion, obtener_agente
 
     agente_actual = obtener_agente()
-    is_admin = str(getattr(agente_actual, "rol", "")).lower() == "admin"
+    is_admin = str(getattr(agente_actual, "rol", "")).strip().lower() == "admin"
 
     def _on_logout(_event) -> None:
         cerrar_sesion()

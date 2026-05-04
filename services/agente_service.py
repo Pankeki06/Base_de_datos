@@ -1,5 +1,6 @@
 from models.agente import Agente
 from repositories.agente_repository import AgenteRepository
+from repositories.poliza_repository import PolizaRepository
 from services.security import hash_password
 from services.validators import validar_correo, validar_password, validar_requerido, validar_telefono
 
@@ -39,6 +40,15 @@ class AgenteService:
         return AgenteRepository.get_all_agentes()
 
     @staticmethod
+    def get_page(page: int = 1, page_size: int = 20, nombre_query: str = "") -> tuple[list[Agente], int]:
+        page = max(1, int(page))
+        page_size = max(1, int(page_size))
+        query = (nombre_query or "").strip()
+        items = AgenteRepository.get_agentes_page(page=page, page_size=page_size, nombre_query=query)
+        total = AgenteRepository.count_agentes(nombre_query=query)
+        return items, total
+
+    @staticmethod
     def update(id_agente: int, data: dict) -> Agente | None:
         payload = data.copy()
         if "correo" in payload:
@@ -55,4 +65,22 @@ class AgenteService:
 
     @staticmethod
     def delete(id_agente: int) -> bool:
+        polizas_asignadas = PolizaRepository.count_by_agente_responsable(id_agente)
+        if polizas_asignadas > 0:
+            raise ValueError(
+                "No se puede desactivar el agente porque tiene polizas asignadas. Reasigna esas polizas antes de continuar."
+            )
         return AgenteRepository.delete_agente(id_agente)
+
+    @staticmethod
+    def get_page_desactivados(page: int = 1, page_size: int = 20, nombre_query: str = "") -> tuple[list, int]:
+        page = max(1, int(page))
+        page_size = max(1, int(page_size))
+        query = (nombre_query or "").strip()
+        items = AgenteRepository.get_agentes_desactivados_page(page=page, page_size=page_size, nombre_query=query)
+        total = AgenteRepository.count_agentes_desactivados(nombre_query=query)
+        return items, total
+
+    @staticmethod
+    def reactivate(id_agente: int) -> bool:
+        return AgenteRepository.reactivate_agente(id_agente)

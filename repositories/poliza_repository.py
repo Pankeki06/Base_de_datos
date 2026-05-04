@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlmodel import select
+from sqlmodel import func, select
 
 from config.database import create_session
 from models.asegurado import Asegurado
@@ -11,6 +11,22 @@ from models.producto_beneficio import ProductoBeneficio
 
 
 class PolizaRepository:
+    @staticmethod
+    def count_by_agente_responsable(id_agente: int) -> int:
+        with create_session() as session:
+            statement = (
+                select(func.count())
+                .select_from(Poliza)
+                .join(Asegurado, Asegurado.id_asegurado == Poliza.id_asegurado)
+                .where(
+                    Asegurado.id_agente_responsable == id_agente,
+                    Asegurado.deleted_at == None,
+                    Poliza.deleted_at == None,
+                )
+            )
+            total = session.exec(statement).one()
+            return int(total or 0)
+
     @staticmethod
     def create(
         poliza: Poliza,

@@ -117,8 +117,6 @@ class DashboardView:
         agente = self._agente
         nombre_agente = (f"{agente.nombre} {agente.apellido_paterno}"
                          if agente else "Agente")
-        iniciales = ((agente.nombre[0] + agente.apellido_paterno[0]).upper()
-                     if agente else "A")
 
         # Barra de búsqueda
         search_field = ft.TextField(
@@ -158,9 +156,11 @@ class DashboardView:
                     ft.Row(
                         [
                             ft.Container(
-                                content=ft.Text(iniciales, size=13,
-                                                weight=ft.FontWeight.BOLD,
-                                                color=_TEXT),
+                                content=ft.Icon(
+                                    ft.Icons.PERSON_ROUNDED,
+                                    size=18,
+                                    color=_TEXT,
+                                ),
                                 width=36, height=36, border_radius=18,
                                 bgcolor=_BLUE,
                                 alignment=ft.Alignment.CENTER,
@@ -293,7 +293,7 @@ class DashboardView:
             from repositories.seguimiento_repository import SeguimientoRepository
             segs = SeguimientoRepository.get_all()
         except Exception:
-            return ft.Text("Error al cargar recientes.", color=_MUTED, size=13)
+            return ft.Text("Sin contactos recientes.", color=_MUTED, size=13)
 
         vistos: set[int] = set()
         ids_rec: list[int] = []
