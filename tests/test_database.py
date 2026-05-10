@@ -157,10 +157,8 @@ def test_flujo_backend_completo():
         {
             "id_asegurado": asegurado.id_asegurado,
             "id_agente": agente.id_agente,
-            "tipo_contacto": "llamada",
-            "observaciones": "Recordatorio de pago",
-            "resultado": "pendiente",
-            "fecha_hora": datetime(2026, 4, 1, 12, 30, 0),
+            "folio": "FOL-001",
+            "asunto": "Recordatorio de pago",
         }
     )
     assert seguimiento_result["ok"] is True
@@ -176,14 +174,14 @@ def test_flujo_backend_completo():
         )["ok"]
         is True
     )
-    assert SeguimientoController.update_seguimiento(seguimiento.id_seguimiento, {"resultado": "resuelto"})["ok"] is True
+    assert SeguimientoController.update_seguimiento(seguimiento.id_seguimiento, {"asunto": "Nuevo asunto"})["ok"] is True
 
-    assert AgenteController.delete_agente(agente.id_agente)["ok"] is True
     assert BeneficiarioController.delete_beneficiario(beneficiario.id_beneficiario)["ok"] is True
     assert BeneficioController.delete_beneficio(beneficio.id_beneficio)["ok"] is True
-    assert AseguradoController.delete_asegurado(asegurado.id_asegurado)["ok"] is True
-    assert PolizaController.delete_poliza(poliza.id_poliza)["ok"] is True
     assert SeguimientoController.delete_seguimiento(seguimiento.id_seguimiento)["ok"] is True
+    assert PolizaController.delete_poliza(poliza.id_poliza)["ok"] is True
+    assert AseguradoController.delete_asegurado(asegurado.id_asegurado)["ok"] is True
+    assert AgenteController.delete_agente(agente.id_agente)["ok"] is True
 
 
 def test_create_poliza_devuelve_id_accesible_fuera_de_sesion():
@@ -441,10 +439,8 @@ def test_create_poliza_copia_solo_beneficios_base_activos():
     beneficios = beneficios_result["data"]
     assert len(beneficios) == 1
     assert beneficios[0].id_producto_beneficio == beneficio_base.id_producto_beneficio
-    assert beneficios[0].nombre_beneficio == "Hospitalizacion base"
-    assert beneficios[0].monto_cobertura == 250000.0
     assert beneficios[0].costo_aplicado == 0.0
-    assert beneficios[0].id_asegurado_poliza is None
+    assert beneficios[0].id_asegurado is None
     assert beneficios[0].monto_override is None
 
 
@@ -543,7 +539,6 @@ def test_create_poliza_respeta_beneficios_seleccionados_del_catalogo():
     beneficios = beneficios_result["data"]
     assert len(beneficios) == 1
     assert beneficios[0].id_producto_beneficio == beneficio_opcional.id_producto_beneficio
-    assert beneficios[0].nombre_beneficio == "Dental opcional"
     assert beneficios[0].costo_aplicado == 135.0
 
 
@@ -1032,45 +1027,16 @@ def test_poliza_y_seguimiento_validan_enums_del_schema():
     assert poliza_invalida["ok"] is False
     assert "estatus" in poliza_invalida["error"]
 
-    seguimiento_tipo_invalido = SeguimientoController.create_seguimiento(
-        {
-            "id_asegurado": asegurado.id_asegurado,
-            "id_agente": agente.id_agente,
-            "tipo_contacto": "correo",
-            "observaciones": "Intento de contacto no soportado por el schema.",
-            "resultado": "pendiente",
-            "fecha_hora": datetime(2026, 4, 1, 9, 0, 0),
-        }
-    )
-    assert seguimiento_tipo_invalido["ok"] is False
-    assert "tipo_contacto" in seguimiento_tipo_invalido["error"]
-
-    seguimiento_resultado_invalido = SeguimientoController.create_seguimiento(
-        {
-            "id_asegurado": asegurado.id_asegurado,
-            "id_agente": agente.id_agente,
-            "tipo_contacto": "llamada",
-            "observaciones": "Resultado fuera del enum permitido.",
-            "resultado": "cerrado",
-            "fecha_hora": datetime(2026, 4, 1, 10, 0, 0),
-        }
-    )
-    assert seguimiento_resultado_invalido["ok"] is False
-    assert "resultado" in seguimiento_resultado_invalido["error"]
-
     seguimiento_valido = SeguimientoController.create_seguimiento(
         {
             "id_asegurado": asegurado.id_asegurado,
             "id_agente": agente.id_agente,
-            "tipo_contacto": "VISITA",
-            "observaciones": "Enum valido con normalizacion a minusculas.",
-            "resultado": "RESUELTO",
-            "fecha_hora": datetime(2026, 4, 1, 11, 0, 0),
+            "folio": "FOL-ENUM-001",
+            "asunto": "Seguimiento de prueba",
         }
     )
     assert seguimiento_valido["ok"] is True
-    assert seguimiento_valido["data"].tipo_contacto == "visita"
-    assert seguimiento_valido["data"].resultado == "resuelto"
+    assert seguimiento_valido["data"].folio == "FOL-ENUM-001"
 
 
 def test_beneficio_soft_delete_usa_deleted_at_y_vigente():
@@ -1336,7 +1302,7 @@ def test_vincular_participante_actualiza_disponibles_y_relaciones():
         }
     )
     assert vinculacion["ok"] is True
-    assert vinculacion["data"].tipo_participante == "hijo"
+    assert vinculacion["data"].parentesco == "hijo"
 
     disponibles_despues = PolizaController.get_available_polizas_for_participante(
         dependiente.id_asegurado
@@ -1350,12 +1316,12 @@ def test_vincular_participante_actualiza_disponibles_y_relaciones():
     assert participaciones["ok"] is True
     assert len(participaciones["data"]) == 1
     assert participaciones["data"][0]["id_poliza"] == poliza.id_poliza
-    assert participaciones["data"][0]["tipo_participante"] == "hijo"
+    assert participaciones["data"][0]["parentesco"] == "hijo"
 
     participantes = PolizaController.get_participantes_by_poliza(poliza.id_poliza)
     assert participantes["ok"] is True
     tipos_por_asegurado = {
-        row["id_asegurado"]: row["tipo_participante"] for row in participantes["data"]
+        row["id_asegurado"]: row["parentesco"] for row in participantes["data"]
     }
     assert tipos_por_asegurado[titular.id_asegurado] == "titular"
     assert tipos_por_asegurado[dependiente.id_asegurado] == "hijo"
@@ -1679,7 +1645,7 @@ def test_beneficio_valida_integridad_entre_poliza_participante_y_plantilla():
     beneficio_participante_invalido = BeneficioController.create_beneficio(
         {
             "id_poliza": poliza_uno.id_poliza,
-            "id_asegurado_poliza": participante_ajeno.id_asegurado_poliza,
+            "id_asegurado": participante_ajeno.id_asegurado,
             "id_producto_beneficio": plantilla_producto_uno.id_producto_beneficio,
         }
     )
@@ -1707,7 +1673,7 @@ def test_beneficio_valida_integridad_entre_poliza_participante_y_plantilla():
     actualizacion_invalida = BeneficioController.update_beneficio(
         beneficio.id_beneficio,
         {
-            "id_asegurado_poliza": participante_ajeno.id_asegurado_poliza,
+            "id_asegurado": participante_ajeno.id_asegurado,
         },
     )
     assert actualizacion_invalida["ok"] is False
@@ -2027,12 +1993,10 @@ def test_seguimiento_create_rechaza_asegurado_inexistente():
     """SeguimientoService.create() rejects a non-existent id_asegurado."""
     agente = _make_agente("SEGFK")
     r = SeguimientoController.create_seguimiento({
+        "folio": "FOL-FK01",
+        "asunto": "Test",
         "id_asegurado": 999999,
         "id_agente": agente.id_agente,
-        "tipo_contacto": "llamada",
-        "observaciones": "Test",
-        "resultado": "pendiente",
-        "fecha_hora": datetime(2026, 1, 1, 10, 0, 0),
     })
     assert r["ok"] is False
     assert "asegurado" in r["error"].lower()
@@ -2043,12 +2007,10 @@ def test_seguimiento_create_rechaza_agente_inexistente():
     agente = _make_agente("SEGFK2")
     asegurado = _make_asegurado("SEGFK2", agente.id_agente)
     r = SeguimientoController.create_seguimiento({
+        "folio": "FOL-FK02",
+        "asunto": "Test",
         "id_asegurado": asegurado.id_asegurado,
         "id_agente": 999999,
-        "tipo_contacto": "visita",
-        "observaciones": "Test",
-        "resultado": "resuelto",
-        "fecha_hora": datetime(2026, 1, 1, 10, 0, 0),
     })
     assert r["ok"] is False
     assert "agente" in r["error"].lower()

@@ -67,7 +67,6 @@ class BeneficioRepository:
                 return None
             for key, value in updated_data.items():
                 setattr(entity, key, value)
-            entity.updated_at = datetime.now()
             session.add(entity)
             session.commit()
             session.refresh(entity)

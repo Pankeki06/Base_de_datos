@@ -5,6 +5,7 @@ from .beneficio_service import BeneficioService
 from .poliza_service import PolizaService
 from .producto_poliza_service import ProductoPolizaService
 from .producto_beneficio_service import ProductoBeneficioService
+from .seguimiento_contacto_service import SeguimientoContactoService
 from .seguimiento_service import SeguimientoService
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "PolizaService",
     "ProductoPolizaService",
     "ProductoBeneficioService",
+    "SeguimientoContactoService",
     "SeguimientoService",
 ]

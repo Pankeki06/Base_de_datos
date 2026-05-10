@@ -5,7 +5,7 @@ from services.validators import validar_enum, validar_monto_positivo, validar_ra
 
 
 class PolizaService:
-    _TIPOS_PARTICIPANTE_VALIDOS = {"titular", "conyuge", "hijo", "dependiente"}
+    _PARENTESCOS_VALIDOS = {"conyuge", "hijo", "dependiente"}
 
     @staticmethod
     def _normalize_selected_beneficios(
@@ -102,14 +102,14 @@ class PolizaService:
         if not data.get("id_asegurado"):
             raise ValueError("El campo id_asegurado es requerido.")
 
-        tipo = str(data.get("tipo_participante", "dependiente")).strip().lower()
-        if tipo not in PolizaService._TIPOS_PARTICIPANTE_VALIDOS:
-            raise ValueError("Tipo de participante inválido.")
+        parentesco = str(data.get("tipo_participante", "dependiente")).strip().lower()
+        if parentesco not in PolizaService._PARENTESCOS_VALIDOS:
+            raise ValueError("Parentesco inválido.")
 
         return PolizaRepository.add_participante(
             id_poliza=int(data["id_poliza"]),
             id_asegurado=int(data["id_asegurado"]),
-            tipo_participante=tipo,
+            parentesco=parentesco,
         )
 
     @staticmethod

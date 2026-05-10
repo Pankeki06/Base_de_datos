@@ -33,7 +33,7 @@ class SeguimientoRepository:
             statement = select(Seguimiento).where(
                 Seguimiento.id_asegurado == id_asegurado,
                 Seguimiento.deleted_at == None,
-            ).order_by(Seguimiento.fecha_hora.desc())
+            ).order_by(Seguimiento.created_at.desc())
             return list(session.exec(statement).all())
 
     @staticmethod

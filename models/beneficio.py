@@ -1,9 +1,6 @@
-"""Modelo de beneficio."""
-
 from datetime import datetime
 
 from sqlmodel import SQLModel, Field as SqlModelField
-from models.asegurado_poliza import AseguradoPoliza  # noqa: F401
 from models.producto_beneficio import ProductoBeneficio  # noqa: F401
 
 
@@ -14,14 +11,17 @@ class Beneficio(SQLModel, table=True):
         default=None,
         foreign_key="producto_beneficio.id_producto_beneficio",
     )
-    id_asegurado_poliza: int | None = SqlModelField(
+    id_asegurado: int | None = SqlModelField(
         default=None,
-        foreign_key="asegurado_poliza.id_asegurado_poliza",
+        foreign_key="asegurado.id_asegurado",
     )
-    nombre_beneficio: str = SqlModelField(max_length=255)
-    descripcion: str = SqlModelField(max_length=500)
-    monto_cobertura: float = SqlModelField(default=0.0)
-    costo_aplicado: float = SqlModelField(default=0.0)
+    nombre_beneficio_extra: str | None = SqlModelField(default=None, max_length=255)
+    descripcion_extra: str | None = SqlModelField(default=None, max_length=500)
     monto_override: float | None = SqlModelField(default=None)
+    costo_aplicado: float = SqlModelField(default=0.0)
     vigente: bool = SqlModelField(default=True)
     deleted_at: datetime | None = SqlModelField(default=None)
+
+    @property
+    def id_asegurado_poliza(self) -> int | None:
+        return self.id_asegurado

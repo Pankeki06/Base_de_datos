@@ -14,6 +14,7 @@ class ProductoBeneficio(SQLModel, table=True):
     nombre_beneficio: str = SqlModelField(max_length=255)
     descripcion: str = SqlModelField(max_length=500)
     monto_cobertura: float = SqlModelField(default=0.0)
+    costo_extra: float | None = SqlModelField(default=None)
     incluido_base: bool = SqlModelField(default=True)
     activo: bool = SqlModelField(default=True)
     created_at: datetime | None = SqlModelField(default_factory=datetime.now)
