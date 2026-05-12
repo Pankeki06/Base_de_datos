@@ -102,14 +102,14 @@ class PolizaService:
         if not data.get("id_asegurado"):
             raise ValueError("El campo id_asegurado es requerido.")
 
-        parentesco = str(data.get("tipo_participante", "dependiente")).strip().lower()
-        if parentesco not in PolizaService._PARENTESCOS_VALIDOS:
-            raise ValueError("Parentesco inválido.")
+        tipo_asegurado = str(data.get("tipo_participante", "dependiente")).strip().lower()
+        if tipo_asegurado not in PolizaService._PARENTESCOS_VALIDOS:
+            raise ValueError("Tipo de participante inválido.")
 
         return PolizaRepository.add_participante(
             id_poliza=int(data["id_poliza"]),
             id_asegurado=int(data["id_asegurado"]),
-            parentesco=parentesco,
+            tipo_asegurado=tipo_asegurado,
         )
 
     @staticmethod

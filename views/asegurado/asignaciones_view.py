@@ -39,6 +39,18 @@ _PART_LABELS = {
     "dependiente": "Dependiente",
 }
 
+_PARENTESCO_OPCIONES = [
+    ft.dropdown.Option(key="Esposo/a", text="Esposo/a"),
+    ft.dropdown.Option(key="Hijo/a", text="Hijo/a"),
+    ft.dropdown.Option(key="Padre", text="Padre"),
+    ft.dropdown.Option(key="Madre", text="Madre"),
+    ft.dropdown.Option(key="Hermano/a", text="Hermano/a"),
+    ft.dropdown.Option(key="Abuelo/a", text="Abuelo/a"),
+    ft.dropdown.Option(key="Nieto/a", text="Nieto/a"),
+    ft.dropdown.Option(key="Tutor legal", text="Tutor legal"),
+    ft.dropdown.Option(key="Otro", text="Otro"),
+]
+
 
 class AsignacionesAseguradoView:
     def __init__(
@@ -1180,7 +1192,7 @@ class AsignacionesAseguradoView:
 
     def _build_beneficiario_poliza_card(self, poliza) -> ft.Container:
         nombre_f = _field("Nombre completo")
-        parentesco_f = _field("Parentesco", hint="Conyuge, Hijo, Padre...")
+        parentesco_f = _dropdown("Parentesco", _PARENTESCO_OPCIONES)
         porcentaje_f = _field("Porcentaje (%)", keyboard_type=ft.KeyboardType.NUMBER)
         telefono_f = _field("Telefono (opcional)", keyboard_type=ft.KeyboardType.PHONE)
         err_t = ft.Text("", color=_ERROR, size=12)
@@ -1383,7 +1395,11 @@ class AsignacionesAseguradoView:
             value=str(getattr(beneficiario, "id_poliza", "") or "") or None,
         )
         nombre_f = _field("Nombre completo", beneficiario.nombre_completo)
-        parentesco_f = _field("Parentesco", beneficiario.parentesco)
+        parentesco_f = _dropdown(
+            "Parentesco",
+            _PARENTESCO_OPCIONES,
+            value=beneficiario.parentesco or None,
+        )
         porcentaje_f = _field(
             "Porcentaje (%)",
             str(beneficiario.porcentaje_participacion),

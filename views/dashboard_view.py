@@ -290,19 +290,22 @@ class DashboardView:
             return ft.Text("Sin sesión activa.", color=_MUTED, size=13)
 
         try:
+            from repositories.seguimiento_contacto_repository import SeguimientoContactoRepository
             from repositories.seguimiento_repository import SeguimientoRepository
-            segs = SeguimientoRepository.get_all()
+            contactos = SeguimientoContactoRepository.get_all()
+            segs = {s.id_seguimiento: s for s in SeguimientoRepository.get_all()}
         except Exception:
             return ft.Text("Sin contactos recientes.", color=_MUTED, size=13)
 
         vistos: set[int] = set()
         ids_rec: list[int] = []
-        for s in sorted(segs, key=lambda x: x.fecha_hora, reverse=True):
-            if s.id_agente != agente.id_agente:
+        for c in sorted(contactos, key=lambda x: x.fecha_hora, reverse=True):
+            seg = segs.get(c.id_seguimiento)
+            if not seg or seg.id_agente != agente.id_agente:
                 continue
-            if s.id_asegurado not in vistos:
-                vistos.add(s.id_asegurado)
-                ids_rec.append(s.id_asegurado)
+            if seg.id_asegurado not in vistos:
+                vistos.add(seg.id_asegurado)
+                ids_rec.append(seg.id_asegurado)
             if len(ids_rec) == 6:
                 break
 
@@ -353,11 +356,15 @@ class DashboardView:
             asegurados = list(a_res.get("data", [])) if a_res["ok"] else []
             total_asegurados = len(asegurados)
 
-            segs = SeguimientoRepository.get_all()
+            from repositories.seguimiento_contacto_repository import SeguimientoContactoRepository
+            contactos = SeguimientoContactoRepository.get_all()
+            segs = {s.id_seguimiento: s for s in SeguimientoRepository.get_all()}
             hoy = date.today()
             segs_hoy = sum(
-                1 for s in segs
-                if s.id_agente == id_agente and s.fecha_hora.date() == hoy
+                1 for c in contactos
+                if (seg := segs.get(c.id_seguimiento))
+                and seg.id_agente == id_agente
+                and c.fecha_hora.date() == hoy
             )
 
             limite = hoy + timedelta(days=30)

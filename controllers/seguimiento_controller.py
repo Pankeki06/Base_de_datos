@@ -22,6 +22,17 @@ class SeguimientoController:
             return {"ok": False, "error": str(e)}
 
     @staticmethod
+    def get_seguimiento_con_contactos(id_seguimiento: int) -> dict:
+        """Obtiene un seguimiento con todos sus contactos."""
+        try:
+            result = SeguimientoService.get_by_id_con_contactos(id_seguimiento)
+            if not result:
+                return {"ok": False, "error": "Seguimiento no encontrado"}
+            return {"ok": True, "data": result}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
     def get_all_seguimientos() -> dict:
         try:
             return {"ok": True, "data": SeguimientoService.get_all()}
@@ -32,6 +43,17 @@ class SeguimientoController:
     def get_seguimientos_by_asegurado(id_asegurado: int) -> dict:
         try:
             return {"ok": True, "data": SeguimientoService.get_by_asegurado(id_asegurado)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def get_seguimientos_by_asegurado_con_contactos(id_asegurado: int) -> dict:
+        """Obtiene todos los seguimientos de un asegurado con sus contactos."""
+        try:
+            return {
+                "ok": True,
+                "data": SeguimientoService.get_by_asegurado_con_contactos(id_asegurado),
+            }
         except Exception as e:
             return {"ok": False, "error": str(e)}
 

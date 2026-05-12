@@ -165,7 +165,8 @@ class DetalleAseguradoView:
         for beneficiario in self._beneficiarios:
             self._beneficiarios_map.setdefault(getattr(beneficiario, "id_poliza", None), []).append(beneficiario)
 
-        seg_res = SeguimientoController.get_seguimientos_by_asegurado(self._id)
+        # Schema v4: Cargar seguimientos con sus contactos
+        seg_res = SeguimientoController.get_seguimientos_by_asegurado_con_contactos(self._id)
         self._seguimientos = seg_res.get("data", []) if seg_res["ok"] else []
 
     def _load_polizas_relacionadas(self) -> None:
@@ -967,26 +968,34 @@ class DetalleAseguradoView:
         return rows
 
     # ── Tab: Seguimientos ─────────────────────────────────────────────────────
+    # Schema v4: Folios (seguimiento) → Contactos (seguimiento_contacto)
 
     def _tab_seguimientos(self) -> ft.Container:
-        seg_col = ft.Column(ref=self._seg_col_ref, spacing=0)
-        seg_col.controls.extend(self._seg_items())
+        seg_col = ft.Column(ref=self._seg_col_ref, spacing=12)
+        seg_col.controls.extend(self._seg_folio_items())
 
         return ft.Container(
             content=ft.Column(
                 [
                     ft.Row(
                         [
-                            ft.Text("Historial", size=15,
+                            ft.Text("Folios de seguimiento", size=15,
                                     weight=ft.FontWeight.W_600, color=_TEXT),
+                            ft.Container(expand=True),
+                            ft.TextButton(
+                                "Ver todos",
+                                icon=ft.Icons.OPEN_IN_NEW_ROUNDED,
+                                on_click=lambda _: self._navigate(
+                                    "/seguimiento/lista",
+                                    id_asegurado=self._id,
+                                ),
+                            ),
                         ],
                     ),
                     ft.Divider(color=_BORDER, height=8),
                     ft.Container(
                         content=seg_col,
-                        bgcolor=_CARD,
-                        border_radius=10,
-                        border=ft.Border.all(1, _BORDER),
+                        expand=True,
                     ),
                 ],
                 spacing=8, scroll=ft.ScrollMode.AUTO, expand=True,
@@ -995,130 +1004,180 @@ class DetalleAseguradoView:
             expand=True,
         )
 
-    def _seg_items(self) -> list:
+    def _seg_folio_items(self) -> list:
+        """Muestra folios con resumen de último contacto."""
         resultado_colors = {
-            "resuelto":     (_ACCENT, ft.Colors.with_opacity(0.12, _ACCENT)),
-            "pendiente":    (_WARN,   ft.Colors.with_opacity(0.12, _WARN)),
+            "resuelto": (_ACCENT, ft.Colors.with_opacity(0.12, _ACCENT)),
+            "pendiente": (_WARN, ft.Colors.with_opacity(0.12, _WARN)),
             "sin_respuesta": (_MUTED, _CARD2),
         }
-        tipo_icons = {
-            "llamada": ft.Icons.PHONE_ROUNDED,
-            "visita":  ft.Icons.PERSON_ROUNDED,
-            "mensaje": ft.Icons.MESSAGE_ROUNDED,
-        }
+        
         items = []
-        for s in sorted(self._seguimientos, key=lambda x: x.fecha_hora, reverse=True):
-            fg, bg = resultado_colors.get(s.resultado, (_MUTED, _CARD2))
-            icon   = tipo_icons.get(s.tipo_contacto, ft.Icons.CHAT_BUBBLE_OUTLINE_ROUNDED)
+        # self._seguimientos ahora es lista de dicts: {"seguimiento": ..., "contactos": [...]}
+        for item in sorted(self._seguimientos, key=lambda x: x["seguimiento"].created_at, reverse=True):
+            seg = item["seguimiento"]
+            contactos = item["contactos"]
+            
+            # Determinar estado del último contacto
+            ultimo_estado = "sin_respuesta"
+            fecha_ultimo = ""
+            n_contactos = len(contactos)
+            
+            if contactos:
+                ultimo = contactos[-1]  # Ordenados por fecha ascendente
+                ultimo_estado = getattr(ultimo, "resultado", "sin_respuesta")
+                fecha_hora = getattr(ultimo, "fecha_hora", None)
+                if fecha_hora:
+                    fecha_ultimo = fecha_hora.strftime("%d/%m/%Y %H:%M")
+            
+            estado_fg, estado_bg = resultado_colors.get(ultimo_estado, (_MUTED, _CARD2))
+            
+            def _make_click_handler(seg_id):
+                return lambda _: self._navigate("/seguimiento/detalle", id_seguimiento=seg_id)
+            
             items.append(
                 ft.Container(
-                    content=ft.Row(
+                    content=ft.Column(
                         [
-                            ft.Container(
-                                content=ft.Icon(icon, size=15, color=_ACCENT),
-                                width=34, height=34, border_radius=8,
-                                bgcolor=ft.Colors.with_opacity(0.12, _ACCENT),
-                                alignment=ft.Alignment.CENTER,
-                            ),
-                            ft.Column(
+                            ft.Row(
                                 [
-                                    ft.Row(
+                                    ft.Icon(ft.Icons.FOLDER_OPEN_OUTLINED, color=_ACCENT, size=20),
+                                    ft.Column(
                                         [
-                                            ft.Text(str(s.fecha_hora.date()),
-                                                    size=11, color=_MUTED),
-                                            _pill(s.tipo_contacto.capitalize(),
-                                                  _MUTED, _CARD2),
-                                            _pill(s.resultado.replace("_", " ").upper(),
-                                                  fg, bg),
+                                            ft.Text(
+                                                seg.folio,
+                                                size=13,
+                                                weight=ft.FontWeight.W_600,
+                                                color=_TEXT,
+                                            ),
+                                            ft.Text(
+                                                seg.asunto,
+                                                size=11,
+                                                color=_MUTED,
+                                                max_lines=1,
+                                                overflow=ft.TextOverflow.ELLIPSIS,
+                                            ),
                                         ],
-                                        spacing=8,
+                                        spacing=2,
+                                        expand=True,
                                     ),
-                                    ft.Text(s.observaciones, size=13, color=_TEXT),
+                                    _pill(
+                                        ultimo_estado.replace("_", " ").upper(),
+                                        estado_fg,
+                                        estado_bg,
+                                    ),
                                 ],
-                                spacing=4, expand=True,
+                                spacing=10,
+                            ),
+                            ft.Row(
+                                [
+                                    ft.Icon(ft.Icons.CHAT_BUBBLE_OUTLINE, size=14, color=_MUTED),
+                                    ft.Text(
+                                        f"{n_contactos} contacto{'s' if n_contactos != 1 else ''}",
+                                        size=11,
+                                        color=_MUTED,
+                                    ),
+                                    ft.Container(expand=True),
+                                    ft.Text(
+                                        f"Último: {fecha_ultimo}" if fecha_ultimo else "Sin contactos",
+                                        size=11,
+                                        color=_MUTED,
+                                    ),
+                                ],
+                                spacing=6,
                             ),
                         ],
-                        spacing=12,
-                        vertical_alignment=ft.CrossAxisAlignment.START,
+                        spacing=6,
                     ),
-                    padding=ft.Padding.symmetric(horizontal=16, vertical=12),
-                    border=ft.Border.only(bottom=ft.BorderSide(1, _BORDER)),
+                    padding=12,
+                    bgcolor=_CARD,
+                    border_radius=8,
+                    border=ft.Border.all(1, _BORDER),
+                    on_click=_make_click_handler(seg.id_seguimiento),
+                    ink=True,
                 )
             )
+        
         if not items:
             items.append(
                 ft.Container(
-                    content=ft.Text("Sin seguimientos registrados.",
-                                    color=_MUTED, size=13),
-                    padding=ft.Padding.symmetric(horizontal=16, vertical=16),
+                    content=ft.Column(
+                        [
+                            ft.Icon(ft.Icons.FOLDER_OPEN_OUTLINED, size=40, color=_MUTED),
+                            ft.Container(height=8),
+                            ft.Text(
+                                "Sin folios de seguimiento",
+                                size=14,
+                                weight=ft.FontWeight.W_600,
+                                color=_TEXT,
+                            ),
+                            ft.Text(
+                                "Cree un nuevo folio para registrar contactos",
+                                size=11,
+                                color=_MUTED,
+                            ),
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    padding=32,
+                    alignment=ft.Alignment.CENTER,
                 )
             )
         return items
 
-    # ── Modal: nuevo seguimiento ──────────────────────────────────────────────
+    # ── Modal: nuevo folio de seguimiento ─────────────────────────────────────
+    # Schema v4: Ahora se crea un folio (seguimiento) primero, luego los contactos
 
     def _open_seguimiento_modal(self) -> None:
-        agente    = obtener_agente()
-        tipo_dd   = _dd("Tipo de contacto", [
-            ft.dropdown.Option(key="llamada", text="Llamada"),
-            ft.dropdown.Option(key="visita",  text="Visita"),
-            ft.dropdown.Option(key="mensaje", text="Mensaje"),
-        ])
-        res_dd    = _dd("Resultado", [
-            ft.dropdown.Option(key="resuelto",     text="Resuelto"),
-            ft.dropdown.Option(key="pendiente",    text="Pendiente"),
-            ft.dropdown.Option(key="sin_respuesta", text="Sin respuesta"),
-        ])
-        obs_f     = _tf("Observaciones", multiline=True, min_lines=2, max_lines=4)
-        fecha_f   = _tf("Fecha y hora", hint_text="AAAA-MM-DD HH:MM")
-        err_t     = ft.Text("", color=_ERROR, size=12)
+        agente = obtener_agente()
+        
+        # Generar sugerencia de folio automática
+        from datetime import datetime
+        folio_sugerido = f"SEG-{datetime.now().year}-{datetime.now().strftime('%m%d')}-"
+        
+        folio_f = _tf("Número de folio", value=folio_sugerido)
+        asunto_f = _tf("Asunto", hint="Descripción breve del caso")
+        err_t = ft.Text("", color=_ERROR, size=12)
 
         def _save(e):
-            from datetime import datetime as dt
-            try:
-                fecha_hora = dt.strptime(fecha_f.value.strip(), "%Y-%m-%d %H:%M")
-            except (ValueError, AttributeError):
-                err_t.value = "Formato invalido. Use AAAA-MM-DD HH:MM."
-                self._page.update(); return
-            if not tipo_dd.value or not res_dd.value:
-                err_t.value = "Selecciona tipo y resultado."
-                self._page.update(); return
-            if agente is None:
-                err_t.value = "No hay una sesión activa. No se puede registrar el seguimiento."
+            if not folio_f.value or not asunto_f.value:
+                err_t.value = "Folio y asunto son requeridos."
                 self._page.update()
                 return
+            if agente is None:
+                err_t.value = "No hay una sesión activa."
+                self._page.update()
+                return
+            
+            # Crear el folio
             r = SeguimientoController.create_seguimiento({
+                "folio": folio_f.value.strip(),
+                "asunto": asunto_f.value.strip(),
                 "id_asegurado": self._id,
-                "id_agente":    agente.id_agente,
-                "tipo_contacto": tipo_dd.value,
-                "resultado":    res_dd.value,
-                "observaciones": obs_f.value,
-                "fecha_hora":   fecha_hora,
+                "id_agente": agente.id_agente,
             })
+            
             if r["ok"]:
+                nuevo_seguimiento = r["data"]
                 self._close_dialog(dlg)
-                seg_res = SeguimientoController.get_seguimientos_by_asegurado(self._id)
-                self._seguimientos = (
-                    seg_res.get("data", []) if seg_res["ok"] else []
-                )
-                col = self._seg_col_ref.current
-                if col is not None:
-                    col.controls.clear()
-                    col.controls.extend(self._seg_items())
-                    self._page.update()
+                
+                # Opción 1: Recargar la vista actual
+                # self._reload_data()
+                # self._page.update()
+                
+                # Opción 2: Navegar al detalle del nuevo folio para agregar contactos
+                self._navigate("/seguimiento/detalle", id_seguimiento=nuevo_seguimiento.id_seguimiento)
             else:
-                err_t.value = r.get("error", "Error al guardar.")
+                err_t.value = r.get("error", "Error al crear folio.")
                 self._page.update()
 
         dlg = modal_dialog(
-            "Nuevo seguimiento",
+            "Nuevo folio de seguimiento",
             ft.Column(
                 [
-                    tipo_dd,
-                    res_dd,
-                    obs_f,
-                    fecha_f,
-                    ft.Text("Usa el formato AAAA-MM-DD HH:MM.", size=11, color=_MUTED),
+                    folio_f,
+                    asunto_f,
+                    ft.Text("Luego podrá agregar contactos al folio.", size=11, color=_MUTED),
                     err_t,
                 ],
                 spacing=12,
@@ -1131,7 +1190,7 @@ class DetalleAseguradoView:
                     on_click=lambda e: self._close_dialog(dlg),
                 ),
                 ft.FilledButton(
-                    "Guardar",
+                    "Crear folio",
                     style=ft.ButtonStyle(bgcolor=_ACCENT, color="#000000"),
                     on_click=_save,
                 ),
@@ -1139,3 +1198,11 @@ class DetalleAseguradoView:
             width=440,
         )
         self._show_dialog(dlg)
+    
+    def _reload_data(self) -> None:
+        """Recarga los datos del asegurado."""
+        self._load_data()
+        col = self._seg_col_ref.current
+        if col is not None:
+            col.controls.clear()
+            col.controls.extend(self._seg_folio_items())

@@ -1,4 +1,6 @@
 from models.beneficiario import Beneficiario
+from models.asegurado import Asegurado
+from repositories.asegurado_repository import AseguradoRepository
 from repositories.beneficiario_repository import BeneficiarioRepository
 from repositories.poliza_repository import PolizaRepository
 from services.validators import validar_porcentaje, validar_requerido, validar_telefono
@@ -6,35 +8,44 @@ from services.validators import validar_porcentaje, validar_requerido, validar_t
 
 class BeneficiarioService:
     @staticmethod
-    def _normalize_id_poliza(value) -> int | None:
+    def _normalize_id(value) -> int | None:
         if value in (None, ""):
             return None
         return int(value)
 
     @staticmethod
-    def _validar_poliza_de_asegurado(id_asegurado: int, id_poliza: int | None) -> None:
-        if id_poliza is None:
-            return
-
+    def _validar_vinculo_asegurado_poliza(id_asegurado: int, id_poliza: int) -> None:
+        """Valida que el asegurado (titular o dependiente) esté vinculado a la póliza."""
         poliza = PolizaRepository.get_by_id(id_poliza)
         if not poliza:
             raise ValueError("La póliza seleccionada no existe o ya no está disponible.")
-
-        participaciones = PolizaRepository.get_participaciones_by_asegurado(id_asegurado)
-        if not any(int(item.get("id_poliza", 0)) == int(id_poliza) for item in participaciones):
-            raise ValueError("La póliza seleccionada no está vinculada a este asegurado.")
+        
+        asegurado = AseguradoRepository.get_by_id(id_asegurado)
+        if not asegurado:
+            raise ValueError("El asegurado no existe.")
+        
+        # Es titular de la póliza
+        if poliza.id_asegurado == id_asegurado:
+            return
+        
+        # Es dependiente de esta póliza
+        if asegurado.id_poliza == id_poliza:
+            return
+        
+        raise ValueError("El asegurado no está vinculado a esta póliza.")
 
     @staticmethod
     def _validar_total_porcentaje(
+        id_poliza: int,
         id_asegurado: int,
         porcentaje: float,
         *,
-        id_poliza: int | None,
         exclude_id: int | None = None,
     ) -> None:
+        """Valida que el porcentaje acumulado del asegurado no exceda 100%."""
         total_actual = BeneficiarioRepository.get_total_porcentaje_by_asegurado(
+            id_poliza,
             id_asegurado,
-            id_poliza=id_poliza,
             exclude_id=exclude_id,
         )
         if round(total_actual + porcentaje, 4) > 100.0:
@@ -44,24 +55,28 @@ class BeneficiarioService:
     def create(data: dict) -> Beneficiario:
         payload = data.copy()
 
-        validar_requerido(payload.get("id_asegurado"), "id_asegurado")
+        id_asegurado = BeneficiarioService._normalize_id(payload.get("id_asegurado"))
+        id_poliza = BeneficiarioService._normalize_id(payload.get("id_poliza"))
+
+        if id_poliza is None:
+            raise ValueError("El campo 'id_poliza' es obligatorio.")
+        if id_asegurado is None:
+            raise ValueError("El campo 'id_asegurado' es obligatorio.")
+
         validar_requerido(payload.get("nombre_completo", ""), "nombre_completo")
         validar_requerido(payload.get("parentesco", ""), "parentesco")
         validar_telefono(payload.get("telefono"), "telefono")
 
-        payload["id_poliza"] = BeneficiarioService._normalize_id_poliza(payload.get("id_poliza"))
+        # Validar que el asegurado está vinculado a la póliza
+        BeneficiarioService._validar_vinculo_asegurado_poliza(id_asegurado, id_poliza)
 
-        id_asegurado = int(payload["id_asegurado"])
-        id_poliza = payload.get("id_poliza")
-        BeneficiarioService._validar_poliza_de_asegurado(id_asegurado, id_poliza)
+        payload["id_poliza"] = id_poliza
+        payload["id_asegurado"] = id_asegurado
 
         porcentaje = float(payload.get("porcentaje_participacion", 0))
         validar_porcentaje(porcentaje)
-        BeneficiarioService._validar_total_porcentaje(
-            id_asegurado,
-            porcentaje,
-            id_poliza=id_poliza,
-        )
+        BeneficiarioService._validar_total_porcentaje(id_poliza, id_asegurado, porcentaje)
+
         return BeneficiarioRepository.create(Beneficiario(**payload))
 
     @staticmethod
@@ -74,7 +89,13 @@ class BeneficiarioService:
 
     @staticmethod
     def get_by_asegurado(id_asegurado: int) -> list[Beneficiario]:
+        """Retorna beneficiarios de un asegurado (titular o dependiente)."""
         return BeneficiarioRepository.get_by_asegurado(id_asegurado)
+
+    @staticmethod
+    def get_by_poliza(id_poliza: int) -> list[Beneficiario]:
+        """Retorna todos los beneficiarios de una póliza."""
+        return BeneficiarioRepository.get_by_poliza(id_poliza)
 
     @staticmethod
     def update(id_beneficiario: int, data: dict) -> Beneficiario | None:
@@ -84,7 +105,7 @@ class BeneficiarioService:
 
         payload = data.copy()
         if "id_poliza" in payload:
-            payload["id_poliza"] = BeneficiarioService._normalize_id_poliza(payload.get("id_poliza"))
+            payload["id_poliza"] = BeneficiarioService._normalize_id(payload.get("id_poliza"))
         if "nombre_completo" in payload:
             validar_requerido(payload.get("nombre_completo", ""), "nombre_completo")
         if "parentesco" in payload:
@@ -92,16 +113,20 @@ class BeneficiarioService:
         if "telefono" in payload:
             validar_telefono(payload.get("telefono"), "telefono")
 
-        id_asegurado = int(payload.get("id_asegurado", entity.id_asegurado))
         id_poliza = payload.get("id_poliza", entity.id_poliza)
-        BeneficiarioService._validar_poliza_de_asegurado(id_asegurado, id_poliza)
-        porcentaje = float(payload.get("porcentaje_participacion", entity.porcentaje_participacion))
-        if "id_asegurado" in payload or "id_poliza" in payload or "porcentaje_participacion" in payload:
+        id_asegurado = payload.get("id_asegurado", entity.id_asegurado)
+        
+        # Validar cambio de asegurado/póliza si se está actualizando
+        if "id_asegurado" in payload or "id_poliza" in payload:
+            BeneficiarioService._validar_vinculo_asegurado_poliza(id_asegurado, id_poliza)
+
+        if "porcentaje_participacion" in payload:
+            porcentaje = float(payload["porcentaje_participacion"])
             validar_porcentaje(porcentaje)
             BeneficiarioService._validar_total_porcentaje(
+                id_poliza,
                 id_asegurado,
                 porcentaje,
-                id_poliza=id_poliza,
                 exclude_id=id_beneficiario,
             )
 

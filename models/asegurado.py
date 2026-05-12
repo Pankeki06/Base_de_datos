@@ -19,6 +19,17 @@ class Asegurado(SQLModel, table=True):
     municipio: str = SqlModelField(max_length=100)
     estado: str = SqlModelField(max_length=100)
     codigo_postal: str = SqlModelField(max_length=20)
+    tipo_asegurado: str = SqlModelField(
+        default="titular",
+        max_length=20,
+        description="titular, conyuge, hijo, dependiente"
+    )
+    id_poliza: int | None = SqlModelField(
+        default=None,
+        foreign_key="poliza.id_poliza",
+        index=True,
+        description="NULL si es titular, NOT NULL si es dependiente de otra póliza"
+    )
     id_agente_responsable: int | None = SqlModelField(default=None, foreign_key="agente.id_agente", index=True)
     created_at: datetime | None = SqlModelField(default_factory=datetime.now)
     updated_at: datetime | None = SqlModelField(default_factory=datetime.now)

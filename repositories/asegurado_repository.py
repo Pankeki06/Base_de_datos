@@ -5,6 +5,7 @@ from sqlmodel import select, or_
 from config.database import create_session
 from models.asegurado import Asegurado
 from models.beneficiario import Beneficiario
+from models.poliza import Poliza
 
 
 class AseguradoRepository:
@@ -84,15 +85,58 @@ class AseguradoRepository:
             entity.deleted_at = now
             entity.updated_at = now
             session.add(entity)
-            # Cascade soft delete to beneficiarios
-            beneficiarios = session.exec(
+            
+            # 1. Cascade soft delete a beneficiarios donde es el beneficiario (titular o dependiente)
+            beneficiarios_personales = session.exec(
                 select(Beneficiario).where(
                     Beneficiario.id_asegurado == id_asegurado,
                     Beneficiario.deleted_at == None,
                 )
             ).all()
-            for b in beneficiarios:
+            for b in beneficiarios_personales:
                 b.deleted_at = now
                 session.add(b)
+            
+            # 2. Si es titular: cascade a beneficiarios de sus pólizas y a las pólizas
+            poliza_ids = session.exec(
+                select(Poliza.id_poliza).where(
+                    Poliza.id_asegurado == id_asegurado,
+                    Poliza.deleted_at == None,
+                )
+            ).all()
+            if poliza_ids:
+                # Beneficiarios de sus pólizas (donde él es titular)
+                beneficiarios_polizas = session.exec(
+                    select(Beneficiario).where(
+                        Beneficiario.id_poliza.in_(poliza_ids),
+                        Beneficiario.deleted_at == None,
+                    )
+                ).all()
+                for b in beneficiarios_polizas:
+                    b.deleted_at = now
+                    session.add(b)
+                # Las pólizas
+                polizas = session.exec(
+                    select(Poliza).where(
+                        Poliza.id_asegurado == id_asegurado,
+                        Poliza.deleted_at == None,
+                    )
+                ).all()
+                for p in polizas:
+                    p.deleted_at = now
+                    session.add(p)
+                # Desvincular dependientes (resetear id_poliza y tipo_asegurado)
+                dependientes = session.exec(
+                    select(Asegurado).where(
+                        Asegurado.id_poliza.in_(poliza_ids),
+                        Asegurado.deleted_at == None,
+                    )
+                ).all()
+                for d in dependientes:
+                    d.id_poliza = None
+                    d.tipo_asegurado = "titular"
+                    d.updated_at = now
+                    session.add(d)
+            
             session.commit()
             return True

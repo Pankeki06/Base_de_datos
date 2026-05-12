@@ -63,6 +63,14 @@ def main(page: ft.Page) -> None:
             from views.asegurado.formulario_view import FormularioAseguradoView
             asegurado = kwargs.get("asegurado")
             page.add(FormularioAseguradoView(page, navigate, asegurado=asegurado).build())
+        elif route == "/seguimiento/lista":
+            from views.seguimiento.lista_view import ListaSeguimientosView
+            id_asegurado = kwargs.get("id_asegurado")
+            page.add(ListaSeguimientosView(page, navigate, id_asegurado).build())
+        elif route == "/seguimiento/detalle":
+            from views.seguimiento.detalle_view import DetalleSeguimientoView
+            id_seguimiento = kwargs.get("id_seguimiento")
+            page.add(DetalleSeguimientoView(page, navigate, id_seguimiento).build())
         page.update()
 
     navigate("/login")

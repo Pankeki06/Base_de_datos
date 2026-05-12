@@ -4,9 +4,9 @@ from sqlmodel import func, select
 
 from config.database import create_session
 from models.asegurado import Asegurado
+from models.beneficiario import Beneficiario
 from models.beneficio import Beneficio
 from models.poliza import Poliza
-from models.poliza_dependiente import PolizaDependiente
 from models.producto_beneficio import ProductoBeneficio
 
 
@@ -120,6 +120,7 @@ class PolizaRepository:
 
     @staticmethod
     def get_participantes_by_poliza(id_poliza: int) -> list[dict]:
+        """Retorna titular + dependientes de una póliza."""
         with create_session() as session:
             poliza = session.exec(
                 select(Poliza).where(Poliza.id_poliza == id_poliza, Poliza.deleted_at == None)
@@ -127,6 +128,7 @@ class PolizaRepository:
             if not poliza:
                 return []
 
+            # Titular
             asegurado = session.exec(
                 select(Asegurado).where(Asegurado.id_asegurado == poliza.id_asegurado, Asegurado.deleted_at == None)
             ).first()
@@ -135,33 +137,30 @@ class PolizaRepository:
             if asegurado:
                 nombre = f"{asegurado.nombre} {asegurado.apellido_paterno} {asegurado.apellido_materno}".strip()
                 participantes.append({
-                    "id_poliza_dependiente": None,
                     "id_asegurado": asegurado.id_asegurado,
+                    "tipo_asegurado": "titular",
                     "parentesco": "titular",
-                    "tipo_participante": "titular",
                     "nombre_completo": nombre,
                     "rfc": asegurado.rfc,
                     "correo": asegurado.correo,
                     "celular": asegurado.celular,
                 })
 
+            # Dependientes (asegurados con id_poliza = esta póliza y tipo != titular)
             dependientes = session.exec(
-                select(PolizaDependiente, Asegurado)
-                .join(Asegurado, Asegurado.id_asegurado == PolizaDependiente.id_asegurado)
-                .where(
-                    PolizaDependiente.id_poliza == id_poliza,
-                    PolizaDependiente.deleted_at == None,
+                select(Asegurado).where(
+                    Asegurado.id_poliza == id_poliza,
+                    Asegurado.tipo_asegurado != "titular",
                     Asegurado.deleted_at == None,
                 )
             ).all()
 
-            for pd, a in dependientes:
+            for a in dependientes:
                 nombre = f"{a.nombre} {a.apellido_paterno} {a.apellido_materno}".strip()
                 participantes.append({
-                    "id_poliza_dependiente": pd.id_poliza_dependiente,
                     "id_asegurado": a.id_asegurado,
-                    "parentesco": pd.parentesco,
-                    "tipo_participante": pd.parentesco,
+                    "tipo_asegurado": a.tipo_asegurado,
+                    "parentesco": a.tipo_asegurado,  # conyuge, hijo, dependiente
                     "nombre_completo": nombre,
                     "rfc": a.rfc,
                     "correo": a.correo,
@@ -171,20 +170,12 @@ class PolizaRepository:
             return participantes
 
     @staticmethod
-    def get_participante_by_id(id_poliza_dependiente: int) -> PolizaDependiente | None:
-        with create_session() as session:
-            return session.exec(
-                select(PolizaDependiente).where(
-                    PolizaDependiente.id_poliza_dependiente == id_poliza_dependiente,
-                    PolizaDependiente.deleted_at == None,
-                )
-            ).first()
-
-    @staticmethod
     def get_participaciones_by_asegurado(id_asegurado: int) -> list[dict]:
+        """Retorna todas las pólizas donde el asegurado participa (como titular o dependiente)."""
         with create_session() as session:
             participaciones = []
 
+            # Como titular
             polizas_como_titular = session.exec(
                 select(Poliza).where(
                     Poliza.id_asegurado == id_asegurado,
@@ -196,36 +187,44 @@ class PolizaRepository:
                     "id_poliza": p.id_poliza,
                     "numero_poliza": p.numero_poliza,
                     "estatus_poliza": p.estatus,
+                    "tipo_asegurado": "titular",
                     "parentesco": "titular",
-                    "tipo_participante": "titular",
                 })
 
-            dependencias = session.exec(
-                select(PolizaDependiente, Poliza)
-                .join(Poliza, Poliza.id_poliza == PolizaDependiente.id_poliza)
-                .where(
-                    PolizaDependiente.id_asegurado == id_asegurado,
-                    PolizaDependiente.deleted_at == None,
-                    Poliza.deleted_at == None,
+            # Como dependiente (buscar en asegurado donde id_poliza != NULL)
+            asegurado_dependiente = session.exec(
+                select(Asegurado).where(
+                    Asegurado.id_asegurado == id_asegurado,
+                    Asegurado.id_poliza != None,
+                    Asegurado.deleted_at == None,
                 )
-            ).all()
-
-            for pd, poliza in dependencias:
-                participaciones.append({
-                    "id_poliza": poliza.id_poliza,
-                    "numero_poliza": poliza.numero_poliza,
-                    "estatus_poliza": poliza.estatus,
-                    "parentesco": pd.parentesco,
-                    "tipo_participante": pd.parentesco,
-                })
+            ).first()
+            
+            if asegurado_dependiente:
+                poliza = session.exec(
+                    select(Poliza).where(
+                        Poliza.id_poliza == asegurado_dependiente.id_poliza,
+                        Poliza.deleted_at == None,
+                    )
+                ).first()
+                if poliza:
+                    participaciones.append({
+                        "id_poliza": poliza.id_poliza,
+                        "numero_poliza": poliza.numero_poliza,
+                        "estatus_poliza": poliza.estatus,
+                        "tipo_asegurado": asegurado_dependiente.tipo_asegurado,
+                        "parentesco": asegurado_dependiente.tipo_asegurado,
+                    })
 
             return participaciones
 
     @staticmethod
     def get_available_for_participante(id_asegurado: int) -> list[Poliza]:
+        """Retorna pólizas disponibles para vincular a un asegurado como dependiente."""
         with create_session() as session:
             linked_poliza_ids = set()
 
+            # Ya es titular de estas pólizas
             titular_ids = session.exec(
                 select(Poliza.id_poliza).where(
                     Poliza.id_asegurado == id_asegurado,
@@ -234,14 +233,18 @@ class PolizaRepository:
             ).all()
             linked_poliza_ids.update(titular_ids)
 
-            dependiente_rows = session.exec(
-                select(PolizaDependiente.id_poliza).where(
-                    PolizaDependiente.id_asegurado == id_asegurado,
-                    PolizaDependiente.deleted_at == None,
+            # Ya es dependiente de alguna póliza
+            asegurado = session.exec(
+                select(Asegurado).where(
+                    Asegurado.id_asegurado == id_asegurado,
+                    Asegurado.id_poliza != None,
+                    Asegurado.deleted_at == None,
                 )
-            ).all()
-            linked_poliza_ids.update(dependiente_rows)
+            ).first()
+            if asegurado and asegurado.id_poliza:
+                linked_poliza_ids.add(asegurado.id_poliza)
 
+            # Productos ya cubiertos (para evitar duplicados)
             productos_activos_cubiertos = set()
             productos_titular = session.exec(
                 select(Poliza.id_producto).where(
@@ -252,17 +255,15 @@ class PolizaRepository:
             ).all()
             productos_activos_cubiertos.update(productos_titular)
 
-            productos_dependiente = session.exec(
-                select(Poliza.id_producto)
-                .join(PolizaDependiente, PolizaDependiente.id_poliza == Poliza.id_poliza)
-                .where(
-                    PolizaDependiente.id_asegurado == id_asegurado,
-                    PolizaDependiente.deleted_at == None,
-                    Poliza.deleted_at == None,
-                    Poliza.estatus == "activa",
-                )
-            ).all()
-            productos_activos_cubiertos.update(productos_dependiente)
+            if asegurado and asegurado.id_poliza:
+                poliza_dependiente = session.exec(
+                    select(Poliza).where(
+                        Poliza.id_poliza == asegurado.id_poliza,
+                        Poliza.deleted_at == None,
+                    )
+                ).first()
+                if poliza_dependiente and poliza_dependiente.estatus == "activa":
+                    productos_activos_cubiertos.add(poliza_dependiente.id_producto)
 
             polizas_activas = session.exec(
                 select(Poliza).where(
@@ -279,7 +280,8 @@ class PolizaRepository:
             ]
 
     @staticmethod
-    def add_participante(id_poliza: int, id_asegurado: int, parentesco: str) -> PolizaDependiente:
+    def add_participante(id_poliza: int, id_asegurado: int, tipo_asegurado: str) -> Asegurado:
+        """Vincula un asegurado como dependiente de una póliza."""
         with create_session() as session:
             poliza = session.exec(
                 select(Poliza).where(
@@ -302,34 +304,17 @@ class PolizaRepository:
             if not asegurado:
                 raise ValueError("El asegurado no existe o no está disponible.")
 
-            current = session.exec(
-                select(PolizaDependiente).where(
-                    PolizaDependiente.id_poliza == id_poliza,
-                    PolizaDependiente.id_asegurado == id_asegurado,
-                )
-            ).first()
+            if asegurado.id_poliza is not None and asegurado.id_poliza != id_poliza:
+                raise ValueError("El asegurado ya está vinculado a otra póliza.")
 
-            if current and current.deleted_at is None:
-                raise ValueError("El asegurado ya está vinculado a esta póliza.")
-
-            if current:
-                current.parentesco = parentesco
-                current.deleted_at = None
-                current.updated_at = datetime.now()
-                session.add(current)
-                session.commit()
-                session.refresh(current)
-                return current
-
-            relacion = PolizaDependiente(
-                id_poliza=id_poliza,
-                id_asegurado=id_asegurado,
-                parentesco=parentesco,
-            )
-            session.add(relacion)
+            # Actualizar el asegurado como dependiente
+            asegurado.tipo_asegurado = tipo_asegurado
+            asegurado.id_poliza = id_poliza
+            asegurado.updated_at = datetime.now()
+            session.add(asegurado)
             session.commit()
-            session.refresh(relacion)
-            return relacion
+            session.refresh(asegurado)
+            return asegurado
 
     @staticmethod
     def update(id_poliza: int, updated_data: dict) -> Poliza | None:
@@ -355,6 +340,8 @@ class PolizaRepository:
             entity.deleted_at = now
             entity.updated_at = now
             session.add(entity)
+            
+            # Cascade a beneficios
             beneficios = session.exec(
                 select(Beneficio).where(
                     Beneficio.id_poliza == id_poliza,
@@ -365,5 +352,30 @@ class PolizaRepository:
                 b.deleted_at = now
                 b.vigente = False
                 session.add(b)
+            
+            # Cascade a beneficiarios
+            beneficiarios = session.exec(
+                select(Beneficiario).where(
+                    Beneficiario.id_poliza == id_poliza,
+                    Beneficiario.deleted_at == None,
+                )
+            ).all()
+            for b in beneficiarios:
+                b.deleted_at = now
+                session.add(b)
+            
+            # Cascade: desvincular dependientes (limpiar id_poliza)
+            dependientes = session.exec(
+                select(Asegurado).where(
+                    Asegurado.id_poliza == id_poliza,
+                    Asegurado.deleted_at == None,
+                )
+            ).all()
+            for d in dependientes:
+                d.id_poliza = None
+                d.tipo_asegurado = "titular"  # Resetear a titular
+                d.updated_at = now
+                session.add(d)
+            
             session.commit()
             return True

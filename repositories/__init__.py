@@ -3,7 +3,6 @@ from .asegurado_repository import AseguradoRepository
 from .beneficiario_repository import BeneficiarioRepository
 from .beneficio_repository import BeneficioRepository
 from .poliza_repository import PolizaRepository
-from .poliza_dependiente_repository import PolizaDependienteRepository
 from .producto_poliza_repository import ProductoPolizaRepository
 from .producto_beneficio_repository import ProductoBeneficioRepository
 from .seguimiento_repository import SeguimientoRepository
@@ -15,7 +14,6 @@ __all__ = [
     "BeneficiarioRepository",
     "BeneficioRepository",
     "PolizaRepository",
-    "PolizaDependienteRepository",
     "ProductoPolizaRepository",
     "ProductoBeneficioRepository",
     "SeguimientoRepository",

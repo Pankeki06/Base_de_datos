@@ -11,6 +11,7 @@ import repositories.beneficio_repository as beneficio_repo
 import repositories.poliza_repository as poliza_repo
 import repositories.producto_poliza_repository as producto_poliza_repo
 import repositories.producto_beneficio_repository as producto_beneficio_repo
+import repositories.seguimiento_contacto_repository as seguimiento_contacto_repo
 import repositories.seguimiento_repository as seguimiento_repo
 from controllers.agente_controller import AgenteController
 from controllers.asegurado_controller import AseguradoController
@@ -20,6 +21,7 @@ from controllers.beneficio_controller import BeneficioController
 from controllers.poliza_controller import PolizaController
 from controllers.producto_beneficio_controller import ProductoBeneficioController
 from controllers.producto_poliza_controller import ProductoPolizaController
+from controllers.seguimiento_contacto_controller import SeguimientoContactoController
 from controllers.seguimiento_controller import SeguimientoController
 from models.agente import Agente
 
@@ -43,6 +45,7 @@ def test_db():
     poliza_repo.create_session = _create_session
     producto_poliza_repo.create_session = _create_session
     producto_beneficio_repo.create_session = _create_session
+    seguimiento_contacto_repo.create_session = _create_session
     seguimiento_repo.create_session = _create_session
     yield
 
@@ -720,9 +723,35 @@ def test_reglas_dominio_validan_telefonos_y_porcentajes_de_beneficiarios():
     assert asegurado_result["ok"] is True
     asegurado = asegurado_result["data"]
 
+    producto_result = ProductoPolizaController.create_producto(
+        {
+            "nombre": "Producto Reglas Beneficiarios",
+            "descripcion": "Producto para validar reglas de beneficiarios",
+            "tipo_seguro": "Vida",
+            "prima_base": 500.0,
+        }
+    )
+    assert producto_result["ok"] is True
+    producto = producto_result["data"]
+
+    poliza_result = PolizaController.create_poliza(
+        {
+            "id_asegurado": asegurado.id_asegurado,
+            "id_producto": producto.id_producto,
+            "numero_poliza": "PZ-RULES-001",
+            "fecha_inicio": date(2026, 1, 1),
+            "fecha_vencimiento": date(2027, 1, 1),
+            "estatus": "activa",
+            "prima_mensual": 500.0,
+        }
+    )
+    assert poliza_result["ok"] is True
+    poliza = poliza_result["data"]
+
     beneficiario_telefono_invalido = BeneficiarioController.create_beneficiario(
         {
             "id_asegurado": asegurado.id_asegurado,
+            "id_poliza": poliza.id_poliza,
             "nombre_completo": "Telefono Malo",
             "parentesco": "Hermano",
             "porcentaje_participacion": 20.0,
@@ -734,6 +763,7 @@ def test_reglas_dominio_validan_telefonos_y_porcentajes_de_beneficiarios():
     beneficiario_uno = BeneficiarioController.create_beneficiario(
         {
             "id_asegurado": asegurado.id_asegurado,
+            "id_poliza": poliza.id_poliza,
             "nombre_completo": "Persona Uno",
             "parentesco": "Conyuge",
             "porcentaje_participacion": 60.0,
@@ -745,6 +775,7 @@ def test_reglas_dominio_validan_telefonos_y_porcentajes_de_beneficiarios():
     beneficiario_dos = BeneficiarioController.create_beneficiario(
         {
             "id_asegurado": asegurado.id_asegurado,
+            "id_poliza": poliza.id_poliza,
             "nombre_completo": "Persona Dos",
             "parentesco": "Hijo",
             "porcentaje_participacion": 40.0,
@@ -756,6 +787,7 @@ def test_reglas_dominio_validan_telefonos_y_porcentajes_de_beneficiarios():
     beneficiario_excedido = BeneficiarioController.create_beneficiario(
         {
             "id_asegurado": asegurado.id_asegurado,
+            "id_poliza": poliza.id_poliza,
             "nombre_completo": "Persona Tres",
             "parentesco": "Madre",
             "porcentaje_participacion": 10.0,
@@ -961,7 +993,7 @@ def test_beneficiarios_validan_vinculo_y_porcentaje_por_poliza():
         }
     )
     assert poliza_ajena_error["ok"] is False
-    assert "no está vinculada a este asegurado" in poliza_ajena_error["error"]
+    assert "no está vinculado" in poliza_ajena_error["error"].lower() or "vinculada" in poliza_ajena_error["error"].lower()
 
 
 def test_poliza_y_seguimiento_validan_enums_del_schema():
@@ -1302,7 +1334,7 @@ def test_vincular_participante_actualiza_disponibles_y_relaciones():
         }
     )
     assert vinculacion["ok"] is True
-    assert vinculacion["data"].parentesco == "hijo"
+    assert vinculacion["data"].tipo_asegurado == "hijo"
 
     disponibles_despues = PolizaController.get_available_polizas_for_participante(
         dependiente.id_asegurado
@@ -2014,3 +2046,450 @@ def test_seguimiento_create_rechaza_agente_inexistente():
     })
     assert r["ok"] is False
     assert "agente" in r["error"].lower()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tests Schema v4: Seguimiento por folio + contactos
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_seguimiento_folio_con_contactos_flujo_completo():
+    """Flujo completo: crear folio → agregar contactos → ver historial."""
+    agente = _make_agente("FOL")
+    asegurado = _make_asegurado("FOL", agente.id_agente)
+
+    # 1. Crear folio
+    r_folio = SeguimientoController.create_seguimiento({
+        "folio": "SEG-2026-999",
+        "asunto": "Renovación anual",
+        "id_asegurado": asegurado.id_asegurado,
+        "id_agente": agente.id_agente,
+    })
+    assert r_folio["ok"] is True
+    folio = r_folio["data"]
+    assert folio.folio == "SEG-2026-999"
+
+    # 2. Agregar contacto 1 (agente → llamada)
+    from datetime import datetime
+    r_c1 = SeguimientoContactoController.create_contacto({
+        "id_seguimiento": folio.id_seguimiento,
+        "iniciado_por": "agente",
+        "tipo_contacto": "llamada",
+        "resultado": "pendiente",
+        "observaciones": "Llamé para recordar vencimiento",
+        "fecha_hora": datetime(2026, 1, 15, 10, 30),
+    })
+    assert r_c1["ok"] is True
+
+    # 3. Agregar contacto 2 (asegurado → mensaje)
+    r_c2 = SeguimientoContactoController.create_contacto({
+        "id_seguimiento": folio.id_seguimiento,
+        "iniciado_por": "asegurado",
+        "tipo_contacto": "mensaje",
+        "resultado": "resuelto",
+        "observaciones": "Ya pagué la póliza, gracias",
+        "fecha_hora": datetime(2026, 1, 16, 14, 20),
+    })
+    assert r_c2["ok"] is True
+
+    # 4. Obtener folio con contactos
+    r_historial = SeguimientoController.get_seguimiento_con_contactos(folio.id_seguimiento)
+    assert r_historial["ok"] is True
+    data = r_historial["data"]
+    assert data["seguimiento"].folio == "SEG-2026-999"
+    assert len(data["contactos"]) == 2
+    assert data["contactos"][0].tipo_contacto == "llamada"
+    assert data["contactos"][1].tipo_contacto == "mensaje"
+    assert data["contactos"][1].resultado == "resuelto"
+
+    # 5. Listar folios del asegurado con contactos
+    r_lista = SeguimientoController.get_seguimientos_by_asegurado_con_contactos(
+        asegurado.id_asegurado
+    )
+    assert r_lista["ok"] is True
+    assert len(r_lista["data"]) == 1
+    assert len(r_lista["data"][0]["contactos"]) == 2
+
+
+def test_seguimiento_contacto_rechaza_folio_inexistente():
+    """No se puede crear contacto sin folio válido."""
+    from datetime import datetime
+    r = SeguimientoContactoController.create_contacto({
+        "id_seguimiento": 999999,
+        "iniciado_por": "agente",
+        "tipo_contacto": "llamada",
+        "resultado": "pendiente",
+        "observaciones": "Test",
+        "fecha_hora": datetime.now(),
+    })
+    assert r["ok"] is False
+    assert "folio" in r["error"].lower() or "no existe" in r["error"].lower()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tests Schema v4: Dependientes en asegurado (tipo_asegurado + id_poliza)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_dependiente_flujo_completo_v4():
+    """Flujo v4: titular crea póliza → agrega dependiente → dependiente tiene beneficios."""
+    agente = _make_agente("DEP")
+    titular = _make_asegurado("DEP", agente.id_agente)
+    producto = _make_producto("DEP")
+    poliza = _make_poliza(titular.id_asegurado, producto.id_producto, "PZ-DEP-001")
+
+    # Crear dependiente (conyuge)
+    r_dep = AseguradoController.create_asegurado({
+        "nombre": "Maria",
+        "apellido_paterno": "Dependiente",
+        "apellido_materno": "Test",
+        "rfc": "DEPM010101AA1",
+        "correo": "dep@test.com",
+        "celular": "5500000000",
+        "calle": "Calle Dep",
+        "numero_exterior": "10",
+        "colonia": "Col",
+        "municipio": "Mun",
+        "estado": "Edo",
+        "codigo_postal": "00001",
+        "id_agente_responsable": agente.id_agente,
+    })
+    assert r_dep["ok"] is True
+    dependiente = r_dep["data"]
+
+    # Vincular dependiente a póliza
+    r_vinc = PolizaController.add_participante_to_poliza({
+        "id_poliza": poliza.id_poliza,
+        "id_asegurado": dependiente.id_asegurado,
+        "tipo_participante": "conyuge",
+    })
+    assert r_vinc["ok"] is True
+    assert r_vinc["data"].tipo_asegurado == "conyuge"
+    assert r_vinc["data"].id_poliza == poliza.id_poliza
+
+    # Verificar que participantes de la póliza incluyen al dependiente
+    r_parts = PolizaController.get_participantes_by_poliza(poliza.id_poliza)
+    assert r_parts["ok"] is True
+    ids_asegurados = {p["id_asegurado"] for p in r_parts["data"]}
+    assert titular.id_asegurado in ids_asegurados
+    assert dependiente.id_asegurado in ids_asegurados
+
+    # Verificar participaciones del dependiente
+    r_part_dep = PolizaController.get_participaciones_by_asegurado(dependiente.id_asegurado)
+    assert r_part_dep["ok"] is True
+    assert len(r_part_dep["data"]) == 1
+    assert r_part_dep["data"][0]["tipo_asegurado"] == "conyuge"
+
+
+def test_beneficiario_dependiente_flujo_v4():
+    """Crear beneficiario para un dependiente específico."""
+    agente = _make_agente("BEND")
+    titular = _make_asegurado("BEND", agente.id_agente)
+    producto = _make_producto("BEND")
+    poliza = _make_poliza(titular.id_asegurado, producto.id_producto, "PZ-BEND-001")
+
+    # Crear y vincular dependiente
+    r_dep = AseguradoController.create_asegurado({
+        "nombre": "Hijo",
+        "apellido_paterno": "Test",
+        "apellido_materno": "V4",
+        "rfc": "HITV010101AA1",
+        "correo": "hijo@test.com",
+        "celular": "5500000001",
+        "calle": "Calle",
+        "numero_exterior": "1",
+        "colonia": "Col",
+        "municipio": "Mun",
+        "estado": "Edo",
+        "codigo_postal": "00001",
+        "id_agente_responsable": agente.id_agente,
+    })
+    dependiente = r_dep["data"]
+    PolizaController.add_participante_to_poliza({
+        "id_poliza": poliza.id_poliza,
+        "id_asegurado": dependiente.id_asegurado,
+        "tipo_participante": "hijo",
+    })
+
+    # Beneficiario del TITULAR
+    r_ben_tit = BeneficiarioController.create_beneficiario({
+        "id_asegurado": titular.id_asegurado,
+        "id_poliza": poliza.id_poliza,
+        "nombre_completo": "Esposa Titular",
+        "parentesco": "Conyuge",
+        "porcentaje_participacion": 100.0,
+    })
+    assert r_ben_tit["ok"] is True
+
+    # Beneficiario del DEPENDIENTE
+    r_ben_dep = BeneficiarioController.create_beneficiario({
+        "id_asegurado": dependiente.id_asegurado,
+        "id_poliza": poliza.id_poliza,
+        "nombre_completo": "Abuelo del Hijo",
+        "parentesco": "Abuelo",
+        "porcentaje_participacion": 100.0,
+    })
+    assert r_ben_dep["ok"] is True
+    assert r_ben_dep["data"].id_asegurado == dependiente.id_asegurado
+
+    # Verificar que get_by_asegurado retorna los beneficiarios correctos
+    r_bens_dep = BeneficiarioController.get_beneficiarios_by_asegurado(dependiente.id_asegurado)
+    assert r_bens_dep["ok"] is True
+    assert len(r_bens_dep["data"]) == 1
+    assert r_bens_dep["data"][0].nombre_completo == "Abuelo del Hijo"
+
+
+def test_beneficio_dependiente_flujo_v4():
+    """Asignar beneficio específico a un dependiente dentro de la póliza."""
+    agente = _make_agente("BFD")
+    titular = _make_asegurado("BFD", agente.id_agente)
+    producto = _make_producto("BFD")
+    poliza = _make_poliza(titular.id_asegurado, producto.id_producto, "PZ-BFD-001")
+
+    # Crear plantilla de beneficio
+    plantilla_r = ProductoBeneficioController.create_producto_beneficio({
+        "id_producto": producto.id_producto,
+        "nombre_beneficio": "Cobertura dental",
+        "descripcion": "Cobertura dental familiar",
+        "monto_cobertura": 50000.0,
+        "incluido_base": True,
+    })
+    assert plantilla_r["ok"] is True
+    plantilla = plantilla_r["data"]
+
+    # Beneficio para TITULAR (id_asegurado = None)
+    r_ben_tit = BeneficioController.create_beneficio({
+        "id_poliza": poliza.id_poliza,
+        "id_producto_beneficio": plantilla.id_producto_beneficio,
+    })
+    assert r_ben_tit["ok"] is True
+    assert r_ben_tit["data"].id_asegurado is None
+
+    # Crear dependiente
+    r_dep = AseguradoController.create_asegurado({
+        "nombre": "Hijo",
+        "apellido_paterno": "Dental",
+        "apellido_materno": "Test",
+        "rfc": "HIDT010101AA1",
+        "correo": "hijo_dental@test.com",
+        "celular": "5500000002",
+        "calle": "Calle",
+        "numero_exterior": "1",
+        "colonia": "Col",
+        "municipio": "Mun",
+        "estado": "Edo",
+        "codigo_postal": "00001",
+        "id_agente_responsable": agente.id_agente,
+    })
+    dependiente = r_dep["data"]
+    PolizaController.add_participante_to_poliza({
+        "id_poliza": poliza.id_poliza,
+        "id_asegurado": dependiente.id_asegurado,
+        "tipo_participante": "hijo",
+    })
+
+    # Beneficio para DEPENDIENTE (id_asegurado = dependiente.id)
+    r_ben_dep = BeneficioController.create_beneficio({
+        "id_poliza": poliza.id_poliza,
+        "id_producto_beneficio": plantilla.id_producto_beneficio,
+        "id_asegurado": dependiente.id_asegurado,
+    })
+    assert r_ben_dep["ok"] is True
+    assert r_ben_dep["data"].id_asegurado == dependiente.id_asegurado
+
+    # Listar beneficios por póliza
+    r_beneficios = BeneficioController.get_beneficios_by_poliza(poliza.id_poliza)
+    assert r_beneficios["ok"] is True
+    assert len(r_beneficios["data"]) == 2
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tests Schema v4: Flujo end-to-end completo
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_flujo_completo_v4_end_to_end():
+    """Flujo completo: agente → titular → póliza → dependiente → beneficio → beneficiario → seguimiento."""
+    # 1. Agente
+    agente_r = AgenteController.create_agente({
+        "clave_agente": "e2e-agente",
+        "cedula": "E2E0000001",
+        "nombre": "End2End",
+        "apellido_paterno": "Agente",
+        "apellido_materno": "Test",
+        "correo": "e2e@test.com",
+        "telefono": "5500000000",
+        "rol": "admin",
+        "password": "TestPass123",
+    })
+    assert agente_r["ok"] is True
+    agente = agente_r["data"]
+
+    # 2. Titular
+    titular_r = AseguradoController.create_asegurado({
+        "nombre": "Juan",
+        "apellido_paterno": "Titular",
+        "apellido_materno": "E2E",
+        "rfc": "JUTE010101AA1",
+        "correo": "titular@test.com",
+        "celular": "5500000001",
+        "calle": "Calle Principal",
+        "numero_exterior": "100",
+        "colonia": "Centro",
+        "municipio": "Monterrey",
+        "estado": "Nuevo Leon",
+        "codigo_postal": "64000",
+        "id_agente_responsable": agente.id_agente,
+    })
+    assert titular_r["ok"] is True
+    titular = titular_r["data"]
+    assert titular.tipo_asegurado == "titular"
+    assert titular.id_poliza is None
+
+    # 3. Producto
+    producto_r = ProductoPolizaController.create_producto({
+        "nombre": "Plan Familiar E2E",
+        "descripcion": "Plan completo",
+        "tipo_seguro": "Vida",
+        "prima_base": 1200.0,
+    })
+    assert producto_r["ok"] is True
+    producto = producto_r["data"]
+
+    # 4. Beneficio base del catálogo
+    plantilla_r = ProductoBeneficioController.create_producto_beneficio({
+        "id_producto": producto.id_producto,
+        "nombre_beneficio": "Hospitalización",
+        "descripcion": "Cobertura hospitalaria",
+        "monto_cobertura": 1000000.0,
+        "incluido_base": True,
+    })
+    assert plantilla_r["ok"] is True
+    plantilla = plantilla_r["data"]
+
+    # 5. Póliza
+    poliza_r = PolizaController.create_poliza({
+        "id_asegurado": titular.id_asegurado,
+        "id_producto": producto.id_producto,
+        "numero_poliza": "PZ-E2E-001",
+        "fecha_inicio": date(2026, 1, 1),
+        "fecha_vencimiento": date(2027, 1, 1),
+        "estatus": "activa",
+        "prima_mensual": 1200.0,
+    })
+    assert poliza_r["ok"] is True
+    poliza = poliza_r["data"]
+
+    # 6. Beneficio del catálogo se copió automáticamente
+    beneficios_r = BeneficioController.get_beneficios_by_poliza(poliza.id_poliza)
+    assert beneficios_r["ok"] is True
+    assert len(beneficios_r["data"]) == 1
+    beneficio_base = beneficios_r["data"][0]
+    assert beneficio_base.id_asegurado is None  # Aplica a titular
+
+    # 7. Beneficiario del titular
+    ben_tit_r = BeneficiarioController.create_beneficiario({
+        "id_asegurado": titular.id_asegurado,
+        "id_poliza": poliza.id_poliza,
+        "nombre_completo": "Esposa del Titular",
+        "parentesco": "Conyuge",
+        "porcentaje_participacion": 100.0,
+    })
+    assert ben_tit_r["ok"] is True
+
+    # 8. Dependiente (hijo)
+    hijo_r = AseguradoController.create_asegurado({
+        "nombre": "Pedro",
+        "apellido_paterno": "Hijo",
+        "apellido_materno": "E2E",
+        "rfc": "PEHE010101AA1",
+        "correo": "hijo@test.com",
+        "celular": "5500000002",
+        "calle": "Calle Principal",
+        "numero_exterior": "100",
+        "colonia": "Centro",
+        "municipio": "Monterrey",
+        "estado": "Nuevo Leon",
+        "codigo_postal": "64000",
+        "id_agente_responsable": agente.id_agente,
+    })
+    assert hijo_r["ok"] is True
+    hijo = hijo_r["data"]
+
+    # 9. Vincular hijo a póliza
+    vinc_r = PolizaController.add_participante_to_poliza({
+        "id_poliza": poliza.id_poliza,
+        "id_asegurado": hijo.id_asegurado,
+        "tipo_participante": "hijo",
+    })
+    assert vinc_r["ok"] is True
+    assert vinc_r["data"].tipo_asegurado == "hijo"
+    assert vinc_r["data"].id_poliza == poliza.id_poliza
+
+    # 10. Beneficio específico para el hijo
+    ben_hijo_r = BeneficioController.create_beneficio({
+        "id_poliza": poliza.id_poliza,
+        "id_producto_beneficio": plantilla.id_producto_beneficio,
+        "id_asegurado": hijo.id_asegurado,
+    })
+    assert ben_hijo_r["ok"] is True
+    assert ben_hijo_r["data"].id_asegurado == hijo.id_asegurado
+
+    # 11. Beneficiario del hijo
+    ben_hijo2_r = BeneficiarioController.create_beneficiario({
+        "id_asegurado": hijo.id_asegurado,
+        "id_poliza": poliza.id_poliza,
+        "nombre_completo": "Abuelo Materno",
+        "parentesco": "Abuelo",
+        "porcentaje_participacion": 100.0,
+    })
+    assert ben_hijo2_r["ok"] is True
+
+    # 12. Folio de seguimiento
+    from datetime import datetime
+    folio_r = SeguimientoController.create_seguimiento({
+        "folio": "SEG-E2E-001",
+        "asunto": "Revisión anual de póliza",
+        "id_asegurado": titular.id_asegurado,
+        "id_agente": agente.id_agente,
+    })
+    assert folio_r["ok"] is True
+    folio = folio_r["data"]
+
+    # 13. Contactos del folio
+    c1_r = SeguimientoContactoController.create_contacto({
+        "id_seguimiento": folio.id_seguimiento,
+        "iniciado_por": "agente",
+        "tipo_contacto": "llamada",
+        "resultado": "pendiente",
+        "observaciones": "Llamada inicial para agendar revisión",
+        "fecha_hora": datetime(2026, 3, 1, 10, 0),
+    })
+    assert c1_r["ok"] is True
+
+    c2_r = SeguimientoContactoController.create_contacto({
+        "id_seguimiento": folio.id_seguimiento,
+        "iniciado_por": "asegurado",
+        "tipo_contacto": "mensaje",
+        "resultado": "resuelto",
+        "observaciones": "Confirmé fecha para el 15 de marzo",
+        "fecha_hora": datetime(2026, 3, 2, 14, 30),
+    })
+    assert c2_r["ok"] is True
+
+    # 14. Verificar historial completo
+    hist_r = SeguimientoController.get_seguimiento_con_contactos(folio.id_seguimiento)
+    assert hist_r["ok"] is True
+    assert len(hist_r["data"]["contactos"]) == 2
+
+    # 15. Soft delete de póliza debe archivar todo
+    del_poliza = PolizaController.delete_poliza(poliza.id_poliza)
+    assert del_poliza["ok"] is True
+
+    # Verificar que beneficios quedaron soft-deleted
+    ben_after = BeneficioController.get_beneficios_by_poliza(poliza.id_poliza)
+    assert ben_after["ok"] is True
+    assert len(ben_after["data"]) == 0
+
+    # Verificar que dependiente quedó desvinculado
+    from repositories.asegurado_repository import AseguradoRepository
+    hijo_after = AseguradoRepository.get_by_id(hijo.id_asegurado)
+    assert hijo_after.id_poliza is None
+    assert hijo_after.tipo_asegurado == "titular"

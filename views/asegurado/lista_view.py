@@ -470,7 +470,7 @@ class ListaAseguradoView:
         return sum(policy_totals.values()), len(policy_totals), len(personas_unicas)
 
     def _participant_card(self, participante: dict, *, compact: bool = False) -> ft.Container:
-        tipo = participante.get("tipo_participante", "dependiente")
+        tipo = participante.get("tipo_asegurado", "dependiente")
         label, fg, bg, border = self._PART_STYLE.get(tipo, self._PART_STYLE["dependiente"])
         aid = participante.get("id_asegurado")
         nombre = participante.get("nombre_completo", "Sin nombre")
@@ -510,7 +510,7 @@ class ListaAseguradoView:
         visibles = sorted(
             visibles,
             key=lambda x: (
-                orden.get(x.get("tipo_participante", "dependiente"), 99),
+                orden.get(x.get("tipo_asegurado", "dependiente"), 99),
                 str(x.get("nombre_completo", "")),
             ),
         )
@@ -518,7 +518,7 @@ class ListaAseguradoView:
         cards = [
             self._participant_card(
                 participante,
-                compact=participante.get("tipo_participante") != "titular",
+                compact=participante.get("tipo_asegurado") != "titular",
             )
             for participante in visibles
         ]
