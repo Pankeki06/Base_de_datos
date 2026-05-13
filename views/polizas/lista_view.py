@@ -42,7 +42,7 @@ class ListaPolizasView:
         self._beneficios_map: dict = {}
         self._catalog_col = ft.Column(spacing=16, scroll=ft.ScrollMode.AUTO, expand=True)
 
-    # -- Ciclo de vida
+    # ── Ciclo de vida ──────────────────────────────────────────────────────────
 
     def build(self) -> ft.Control:
         self._load_data()
@@ -54,7 +54,7 @@ class ListaPolizasView:
             bgcolor=_BG,
         )
 
-    # -- Carga de datos
+    # ── Carga de datos ─────────────────────────────────────────────────────────
 
     def _load_data(self) -> None:
         prod_res = ProductoPolizaController.get_all_productos()
@@ -72,7 +72,7 @@ class ListaPolizasView:
         self._catalog_col.controls.extend(self._build_cards())
         self._page.update()
 
-    # -- Panel principal
+    # ── Panel principal ────────────────────────────────────────────────────────
 
     def _build_main(self) -> ft.Container:
         topbar = ft.Container(
@@ -116,7 +116,7 @@ class ListaPolizasView:
             bgcolor=_BG,
         )
 
-    # -- Tarjetas de producto
+    # ── Tarjetas de producto ───────────────────────────────────────────────────
 
     def _build_cards(self) -> list:
         if not self._productos:
@@ -281,7 +281,7 @@ class ListaPolizasView:
             border=ft.Border.all(1, _BORDER),
         )
 
-    # -- Modal: crear tipo de poliza
+    # ── Modal: crear tipo de póliza ────────────────────────────────────────────
 
     def _open_create_producto_modal(self) -> None:
         nombre_f = ft.TextField(
@@ -358,7 +358,7 @@ class ListaPolizasView:
         )
         self._page.show_dialog(dlg)
 
-    # -- Modal: editar tipo de poliza
+    # ── Modal: editar tipo de póliza ───────────────────────────────────────────
 
     def _open_edit_producto_modal(self, producto) -> None:
         nombre_f = ft.TextField(
@@ -443,7 +443,7 @@ class ListaPolizasView:
         )
         self._page.show_dialog(dlg)
 
-    # -- Modal: confirmar eliminacion de producto
+    # ── Modal: confirmar eliminación de producto ───────────────────────────────
 
     def _confirm_delete_producto(self, id_producto: int) -> None:
         btn_del = ft.FilledButton(
@@ -478,7 +478,7 @@ class ListaPolizasView:
         )
         self._page.show_dialog(dlg)
 
-    # -- Modal: agregar beneficio al producto
+    # ── Modal: agregar beneficio al producto ───────────────────────────────────
 
     def _open_create_beneficio_modal(self, id_producto: int) -> None:
         nombre_f = ft.TextField(
@@ -582,7 +582,7 @@ class ListaPolizasView:
         )
         self._page.show_dialog(dlg)
 
-    # -- Modal: editar beneficio
+    # ── Modal: editar beneficio ────────────────────────────────────────────────
 
     def _open_edit_beneficio_modal(self, beneficio) -> None:
         nombre_f = ft.TextField(
@@ -692,7 +692,7 @@ class ListaPolizasView:
         )
         self._page.show_dialog(dlg)
 
-    # -- Modal: confirmar eliminacion de beneficio
+    # ── Modal: confirmar eliminación de beneficio ──────────────────────────────
 
     def _confirm_delete_beneficio(self, id_beneficio: int) -> None:
         btn_del = ft.FilledButton(

@@ -1,4 +1,4 @@
-"""Vista de lista de asegurados."""
+"""Vista de lista de asegurados (optimizada con paginación real y carga batch)."""
 
 from __future__ import annotations
 
@@ -16,12 +16,13 @@ from views.theme import (
     CARD_ALT as _CARD2,
     ERROR as _ERROR,
     MUTED as _MUTED,
-    SIDEBAR as _SIDEBAR,
     TEXT as _TEXT,
     WARN as _WARN,
 )
 from views.ui_controls import empty_state as _empty_state_view, pill as _pill_global
-PAGE_SIZE = 20
+
+# ── Constantes de configuración de la vista ───────────────────────────────
+PAGE_SIZE = 10  # Número de asegurados por página (reducido para mejor rendimiento)
 
 
 def _status_badge(polizas: list, participaciones: list | None = None) -> ft.Container:
@@ -85,38 +86,52 @@ def _participacion_badges(participaciones: list) -> list[ft.Container]:
 
 
 class ListaAseguradoView:
+    """Vista principal del listado de asegurados con paginación real y búsqueda."""
+
     def __init__(self, page: ft.Page, navigate) -> None:
         self._page = page
         self._navigate = navigate
         self._agente = obtener_agente()
-        self._todos: list = []
-        self._asegurados_ids: set[int] = set()
-        self._filtered: list = []
-        self._page_num: int = 0
-        self._search_scope = "portfolio"
-        self._search_query = ""
-        self._polizas_map: dict = {}
-        self._participaciones_map: dict = {}
-        self._participantes_poliza_map: dict = {}
-        self._search_field: ft.TextField | None = None
-        self._scope_help_text: ft.Text | None = None
-        self._portfolio_button: ft.Button | None = None
-        self._global_button: ft.Button | None = None
-        self._list_col = ft.Column(spacing=4)
-        self._empty_state = ft.Container(visible=False)
-        self._no_results_state = ft.Container(visible=False)
-        self._global_prompt_state = ft.Container(visible=False)
-        self._visible_filtered: list = []
-        self._pagination_row_ref = ft.Ref[ft.Row]()
-        self._page_label_ref = ft.Ref[ft.Text]()
+
+        # ── Estado de datos ───────────────────────────────────────────────
+        self._todos: list = []                  # Todos los asegurados cargados
+        self._filtered: list = []               # Asegurados filtrados (búsqueda)
+        self._visible_filtered: list = []       # Asegurados visibles en la página actual
+        self._asegurados_ids: set[int] = set()  # IDs de asegurados cargados
+        self._page_num: int = 0                 # Número de página actual (0-based)
+        self._total: int = 0                    # Total de registros en el backend
+        self._search_scope = "portfolio"        # "portfolio" | "global"
+        self._search_query = ""                 # Texto de búsqueda actual
+
+        # ── Caches de datos relacionados (evita N+1 queries) ──────────────
+        self._polizas_map: dict = {}              # {id_asegurado: [Poliza]}
+        self._participaciones_map: dict = {}      # {id_asegurado: [participacion]}
+        self._participantes_poliza_map: dict = {} # {id_poliza: [participante]}
+
+        # ── Referencias a controles de UI (para actualizar dinámicamente) ──
+        self._search_field: ft.TextField | None = None      # Campo de búsqueda
+        self._scope_help_text: ft.Text | None = None        # Texto ayuda del scope
+        self._portfolio_button: ft.Button | None = None     # Botón "Mi cartera"
+        self._global_button: ft.Button | None = None        # Botón "Búsqueda global"
+        self._list_col = ft.Column(spacing=4)               # Columna del listado
+        self._empty_state = ft.Container(visible=False)     # Estado: sin asegurados
+        self._no_results_state = ft.Container(visible=False)# Estado: búsqueda sin resultados
+        self._global_prompt_state = ft.Container(visible=False) # Estado: global vacío
+        self._pagination_row_ref = ft.Ref[ft.Row]()         # Fila de paginación
+        self._page_label_ref = ft.Ref[ft.Text]()            # Label "Página X de Y"
+
+    # ── Construcción de la vista completa ───────────────────────────────────
 
     def build(self) -> ft.Control:
+        """Construye la vista completa: sidebar + panel principal."""
         self._load_data()
         from views.dashboard_view import _sidebar
         agente = self._agente
         nombre_agente = (f"{agente.nombre} {agente.apellido_paterno}"
                          if agente else "Agente")
+        # Sidebar de navegación lateral
         sidebar = _sidebar(self._navigate, "/clientes")
+        # Panel principal con listado, búsqueda y paginación
         main = self._build_main()
         return ft.Container(
             content=ft.Row([sidebar, main], spacing=0, expand=True),
@@ -130,11 +145,35 @@ class ListaAseguradoView:
         agente = self._agente
         if not agente:
             return
-        result = AseguradoController.get_asegurados_by_agente(agente.id_agente)
-        if result["ok"]:
-            self._todos = result["data"]
+
+        if self._search_scope == "portfolio" and not self._search_query:
+            # Paginación real desde el backend (solo titulares)
+            result = AseguradoController.get_titulares_by_agente_page(
+                agente.id_agente, self._page_num + 1, PAGE_SIZE
+            )
+            if result["ok"]:
+                self._filtered = result["data"]
+                self._total = result.get("total", 0)
+            else:
+                self._filtered = []
+                self._total = 0
+            self._todos = self._filtered
+        elif self._search_scope == "portfolio" and self._search_query:
+            # Búsqueda en cartera: buscar global y filtrar titulares en memoria
+            result = AseguradoController.search_asegurados(self._search_query)
+            data = result.get("data", []) if result["ok"] else []
+            # Filtrar solo los del agente
+            data = [a for a in data if getattr(a, "id_agente_responsable", None) == agente.id_agente]
+            self._todos = data
+            self._filtered = self._only_titulares(data)
+            self._total = len(self._filtered)
+            self._page_num = 0
+        else:
+            # Global sin query
+            self._filtered = []
+            self._total = 0
+
         self._asegurados_ids = {a.id_asegurado for a in self._todos}
-        self._filtered = list(self._todos)
         self._load_page_data()
 
     def _get_search_hint(self) -> str:
@@ -194,37 +233,90 @@ class ListaAseguradoView:
         self._apply_scope_ui()
 
         if self._search_scope == "portfolio":
-            self._filtered = list(self._todos)
-            self._load_page_data()
+            self._load_data()
         else:
             self._filtered = []
+            self._total = 0
 
         self._render_list(self._filtered, searched=False)
         self._page.update()
 
     def _load_page_data(self) -> None:
-        """Load polizas and participantes only for the current page's asegurados."""
-        start = self._page_num * PAGE_SIZE
-        end = start + PAGE_SIZE
-        visibles = self._only_titulares(self._filtered)
-        page_items = visibles[start:end]
+        """Load polizas, participaciones and participantes in batch for visible asegurados."""
+        if not self._filtered:
+            return
+
+        # ¿El backend ya devolvió solo los de esta página?
+        backend_paginated = (
+            self._search_scope == "portfolio"
+            and not self._search_query
+        )
+
+        if backend_paginated:
+            page_items = self._filtered
+        else:
+            start = self._page_num * PAGE_SIZE
+            end = start + PAGE_SIZE
+            page_items = self._filtered[start:end]
+        ids = [a.id_asegurado for a in page_items]
+        if not ids:
+            return
+
+        # 1. Cargar pólizas en batch
+        ids_sin_polizas = [aid for aid in ids if aid not in self._polizas_map]
+        if ids_sin_polizas:
+            res = PolizaController.get_polizas_by_asegurado_ids(ids_sin_polizas)
+            if res["ok"]:
+                for poliza in res["data"]:
+                    aid = poliza.id_asegurado
+                    if aid not in self._polizas_map:
+                        self._polizas_map[aid] = []
+                    self._polizas_map[aid].append(poliza)
+            # Asegurar que todos tengan lista (aunque vacía)
+            for aid in ids_sin_polizas:
+                if aid not in self._polizas_map:
+                    self._polizas_map[aid] = []
+
+        # 2. Cargar participaciones en batch
+        ids_sin_part = [aid for aid in ids if aid not in self._participaciones_map]
+        if ids_sin_part:
+            res = PolizaController.get_participaciones_by_asegurado_ids(ids_sin_part)
+            if res["ok"]:
+                for part in res["data"]:
+                    aid = part.get("id_asegurado")
+                    if aid is not None:
+                        if aid not in self._participaciones_map:
+                            self._participaciones_map[aid] = []
+                        self._participaciones_map[aid].append(part)
+            for aid in ids_sin_part:
+                if aid not in self._participaciones_map:
+                    self._participaciones_map[aid] = []
+
+        # 3. Cargar participantes de pólizas en batch
+        poliza_ids = set()
         for a in page_items:
-            aid = a.id_asegurado
-            if aid not in self._polizas_map:
-                p = PolizaController.get_polizas_by_asegurado(aid)
-                self._polizas_map[aid] = p["data"] if p["ok"] else []
-            if aid not in self._participaciones_map:
-                part = PolizaController.get_participaciones_by_asegurado(aid)
-                self._participaciones_map[aid] = part["data"] if part["ok"] else []
-            for pol in self._polizas_map.get(aid, []):
-                pid = pol.id_poliza
+            for p in self._polizas_map.get(a.id_asegurado, []):
+                poliza_ids.add(p.id_poliza)
+        ids_sin_partic = [pid for pid in poliza_ids if pid not in self._participantes_poliza_map]
+        if ids_sin_partic:
+            res = PolizaController.get_participantes_by_poliza_ids(ids_sin_partic)
+            if res["ok"]:
+                for part in res["data"]:
+                    pid = part.get("id_poliza")
+                    if pid is not None:
+                        if pid not in self._participantes_poliza_map:
+                            self._participantes_poliza_map[pid] = []
+                        self._participantes_poliza_map[pid].append(part)
+            for pid in ids_sin_partic:
                 if pid not in self._participantes_poliza_map:
-                    pts = PolizaController.get_participantes_by_poliza(pid)
-                    self._participantes_poliza_map[pid] = pts["data"] if pts["ok"] else []
+                    self._participantes_poliza_map[pid] = []
 
     # ── Main panel ────────────────────────────────────────────────────────────
 
     def _build_main(self) -> ft.Container:
+        """Construye el panel principal: barra superior, búsqueda, listado y paginación."""
+
+        # ── Campo de búsqueda por nombre o RFC ────────────────────────────
         self._search_field = ft.TextField(
             hint_text=self._get_search_hint(),
             hint_style=ft.TextStyle(color=_MUTED, size=14),
@@ -239,6 +331,7 @@ class ListaAseguradoView:
             on_change=lambda e: self._filter(e.control.value),
         )
 
+        # ── Botones de scope: Mi cartera / Búsqueda global ────────────────
         self._portfolio_button = ft.Button(
             content=ft.Text(
                 "Mi cartera",
@@ -267,6 +360,7 @@ class ListaAseguradoView:
             color=_MUTED,
         )
 
+        # ── Botón "Nuevo asegurado" (esquina superior derecha) ────────────
         btn_nuevo = ft.Button(
             content=ft.Row(
                 [
@@ -288,6 +382,7 @@ class ListaAseguradoView:
             on_click=lambda e: self._navigate("/asegurado/nuevo"),
         )
 
+        # ── Barra superior con título "Asegurados" ────────────────────────
         topbar = ft.Container(
             content=ft.Row(
                 [
@@ -300,7 +395,7 @@ class ListaAseguradoView:
             border=ft.Border.only(bottom=ft.BorderSide(1, _BORDER)),
         )
 
-        # Empty state — no asegurados at all
+        # ── Estado vacío: sin asegurados registrados ──────────────────────
         self._empty_state = _empty_state_view(
             ft.Icons.PERSON_OFF_OUTLINED,
             "Aún no tienes asegurados registrados",
@@ -325,7 +420,7 @@ class ListaAseguradoView:
             visible=False,
         )
 
-        # No results state — search found nothing
+        # ── Estado vacío: búsqueda sin resultados ─────────────────────────
         self._no_results_state = _empty_state_view(
             ft.Icons.SEARCH_OFF_ROUNDED,
             "Sin resultados",
@@ -335,6 +430,7 @@ class ListaAseguradoView:
             visible=False,
         )
 
+        # ── Estado vacío: búsqueda global lista (sin texto aún) ───────────
         self._global_prompt_state = _empty_state_view(
             ft.Icons.TRAVEL_EXPLORE_ROUNDED,
             "Búsqueda global lista",
@@ -343,8 +439,10 @@ class ListaAseguradoView:
             visible=False,
         )
 
+        # Render inicial del listado (puede estar vacío hasta cargar datos)
         self._render_list(self._filtered)
 
+        # ── Cuerpo del listado con Stack para superponer estados vacíos ───
         body = ft.Container(
             content=ft.Stack(
                 [
@@ -358,13 +456,14 @@ class ListaAseguradoView:
             expand=True,
         )
 
+        # ── Fila de paginación (anterior / página X de Y / siguiente) ─────
         pagination = ft.Row(
             ref=self._pagination_row_ref,
             controls=self._build_pagination_controls(),
             alignment=ft.MainAxisAlignment.CENTER,
-            visible=False,
         )
 
+        # ── Ensamblado final del panel principal ──────────────────────────
         return ft.Container(
             content=ft.Column(
                 [
@@ -495,13 +594,15 @@ class ListaAseguradoView:
 
     def _personas_cubiertas_section(self, participantes: list) -> list:
         """Build participant cards for one poliza without profile avatars."""
+        # En portfolio mostramos todos los participantes de la poliza del titular;
+        # en global filtramos solo los que estan cargados en la busqueda actual.
         if self._search_scope == "global":
-            visibles = list(participantes)
-        else:
             visibles = [
                 p for p in participantes
                 if p.get("id_asegurado") in self._asegurados_ids
             ]
+        else:
+            visibles = list(participantes)
 
         if not visibles:
             return [ft.Text("Sin personas cubiertas visibles en esta póliza.", size=11, color=_MUTED)]
@@ -744,14 +845,17 @@ class ListaAseguradoView:
 
     # ── Pagination ────────────────────────────────────────────────────────────
 
+    # ── Paginación ────────────────────────────────────────────────────────────
+
     def _build_pagination_controls(self) -> list:
-        total = len(self._visible_filtered)
-        total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+        """Crea los controles de paginación: [Anterior] [Página X de Y] [Siguiente]."""
+        total_pages = max(1, (self._total + PAGE_SIZE - 1) // PAGE_SIZE)
         page_label = ft.Text(
             ref=self._page_label_ref,
             value=f"Página {self._page_num + 1} de {total_pages}",
             size=13, color=_TEXT,
         )
+        # Botón "Página anterior"
         btn_prev = ft.IconButton(
             icon=ft.Icons.CHEVRON_LEFT_ROUNDED,
             icon_color=_TEXT if self._page_num > 0 else _MUTED,
@@ -759,6 +863,7 @@ class ListaAseguradoView:
             on_click=lambda e: self._prev_page(),
             tooltip="Página anterior",
         )
+        # Botón "Página siguiente"
         btn_next = ft.IconButton(
             icon=ft.Icons.CHEVRON_RIGHT_ROUNDED,
             icon_color=_TEXT if self._page_num < total_pages - 1 else _MUTED,
@@ -769,26 +874,34 @@ class ListaAseguradoView:
         return [btn_prev, page_label, btn_next]
 
     def _update_pagination(self) -> None:
+        """Actualiza la fila de paginación con los controles actuales."""
         row = self._pagination_row_ref.current
         if row is None:
             return
-        total = len(self._visible_filtered)
-        total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+        total_pages = max(1, (self._total + PAGE_SIZE - 1) // PAGE_SIZE)
         row.controls = self._build_pagination_controls()
-        row.visible = total > PAGE_SIZE
+        row.visible = self._total > 0
 
     def _prev_page(self) -> None:
+        """Acción al hacer clic en "Página anterior"."""
         if self._page_num > 0:
             self._page_num -= 1
-            self._load_page_data()
+            if self._search_scope == "portfolio" and not self._search_query:
+                self._load_data()
+            else:
+                self._load_page_data()
             self._render_list(self._filtered)
             self._page.update()
 
     def _next_page(self) -> None:
-        total_pages = max(1, (len(self._visible_filtered) + PAGE_SIZE - 1) // PAGE_SIZE)
+        """Acción al hacer clic en "Página siguiente"."""
+        total_pages = max(1, (self._total + PAGE_SIZE - 1) // PAGE_SIZE)
         if self._page_num < total_pages - 1:
             self._page_num += 1
-            self._load_page_data()
+            if self._search_scope == "portfolio" and not self._search_query:
+                self._load_data()
+            else:
+                self._load_page_data()
             self._render_list(self._filtered)
             self._page.update()
 
@@ -801,20 +914,29 @@ class ListaAseguradoView:
         if self._search_scope == "global":
             if not q:
                 self._filtered = []
+                self._total = 0
             else:
                 result = AseguradoController.search_asegurados(q)
                 data = result.get("data", []) if result["ok"] else []
                 self._filtered = data[:_GLOBAL_LIMIT]
+                self._total = len(self._filtered)
         else:
-            q_lower = q.lower()
-            if not q_lower:
-                self._filtered = list(self._todos)
+            if not q:
+                self._page_num = 0
+                self._load_data()
+                self._render_list(self._filtered, searched=False)
+                self._page.update()
+                return
             else:
-                self._filtered = [
-                    a for a in self._todos
-                    if q_lower in f"{a.nombre} {a.apellido_paterno} {a.apellido_materno}".lower()
-                    or q_lower in a.rfc.lower()
-                ]
+                # Búsqueda en cartera con query
+                result = AseguradoController.search_asegurados(q)
+                data = result.get("data", []) if result["ok"] else []
+                agente = self._agente
+                if agente:
+                    data = [a for a in data if getattr(a, "id_agente_responsable", None) == agente.id_agente]
+                self._todos = data
+                self._filtered = self._only_titulares(data)
+                self._total = len(self._filtered)
         self._page_num = 0
         self._load_page_data()
         self._render_list(self._filtered, searched=bool(q))
@@ -827,15 +949,24 @@ class ListaAseguradoView:
         self._global_prompt_state.visible = False
         self._visible_filtered = []
 
+        # ¿Paginación real del backend? (portfolio sin búsqueda)
+        backend_paginated = (
+            self._search_scope == "portfolio"
+            and not self._search_query
+        )
+
         if self._search_scope == "global" and not self._search_query:
             self._global_prompt_state.visible = True
-        elif not self._todos:
-            self._empty_state.visible = True
+        elif not self._filtered:
+            if self._search_scope == "portfolio" and not self._search_query:
+                self._empty_state.visible = True
+            else:
+                self._no_results_state.visible = True
         else:
-            self._visible_filtered = self._only_titulares(asegurados)
+            self._visible_filtered = list(asegurados)
 
         if self._search_scope != "global" or self._search_query:
-            total_pages = max(1, (len(self._visible_filtered) + PAGE_SIZE - 1) // PAGE_SIZE)
+            total_pages = max(1, (self._total + PAGE_SIZE - 1) // PAGE_SIZE)
             if self._page_num >= total_pages:
                 self._page_num = 0
 
@@ -844,9 +975,13 @@ class ListaAseguradoView:
         elif not self._visible_filtered:
             self._no_results_state.visible = True
         else:
-            start = self._page_num * PAGE_SIZE
-            end = start + PAGE_SIZE
-            page_slice = self._visible_filtered[start:end]
+            if backend_paginated:
+                # El backend ya devolvió solo los de esta página
+                page_slice = self._visible_filtered
+            else:
+                start = self._page_num * PAGE_SIZE
+                end = start + PAGE_SIZE
+                page_slice = self._visible_filtered[start:end]
             for a in page_slice:
                 polizas = self._polizas_map.get(a.id_asegurado, [])
                 participaciones = self._participaciones_map.get(a.id_asegurado, [])

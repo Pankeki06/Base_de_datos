@@ -26,6 +26,7 @@ from views.ui_controls import app_sidebar, modal_dialog, pill as _pill, styled_t
 class ListaSeguimientosView:
     """Lista de folios de seguimiento de un asegurado."""
 
+    # ── Constructor ────────────────────────────────────────────────────────────
     def __init__(self, page: ft.Page, navigate, id_asegurado: int) -> None:
         self._page = page
         self._navigate = navigate
@@ -35,6 +36,7 @@ class ListaSeguimientosView:
         self._seguimientos: list[dict] = []  # Cada item: {"seguimiento": ..., "contactos": [...]}
         self._seg_col_ref = ft.Ref[ft.Column]()
 
+    # ── Carga de datos (asegurado + seguimientos) ──────────────────────────────
     def _load_data(self) -> None:
         """Carga los datos del asegurado y sus seguimientos con contactos."""
         # Cargar asegurado
@@ -49,6 +51,7 @@ class ListaSeguimientosView:
         if seg_res["ok"]:
             self._seguimientos = seg_res["data"]
 
+    # ── Tarjeta de folio con resumen de contactos ──────────────────────────────
     def _build_folio_card(self, item: dict) -> ft.Container:
         """Construye una tarjeta de folio con resumen de contactos."""
         seguimiento = item["seguimiento"]
@@ -137,6 +140,7 @@ class ListaSeguimientosView:
             ink=True,
         )
 
+    # ── Estado vacío: sin seguimientos ─────────────────────────────────────────
     def _build_empty_state(self) -> ft.Container:
         """Estado vacío cuando no hay seguimientos."""
         return ft.Container(
@@ -163,6 +167,7 @@ class ListaSeguimientosView:
             alignment=ft.Alignment.CENTER,
         )
 
+    # ── Modal: crear nuevo folio de seguimiento ────────────────────────────────
     def _open_nuevo_folio_modal(self) -> None:
         """Abre modal para crear nuevo folio de seguimiento."""
         from services.session_manager import obtener_agente
@@ -228,6 +233,7 @@ class ListaSeguimientosView:
         """Recarga la vista."""
         self._navigate("/seguimiento/lista", id_asegurado=self._id_asegurado)
 
+    # ── Encabezado con info del asegurado ──────────────────────────────────────
     def _build_header(self) -> ft.Container:
         """Construye el encabezado con info del asegurado."""
         nombre = ""
@@ -269,6 +275,7 @@ class ListaSeguimientosView:
             border=ft.Border.only(bottom=ft.BorderSide(1, _BORDER)),
         )
 
+    # ── Build de la vista completa ─────────────────────────────────────────────
     def build(self) -> ft.Control:
         """Construye y retorna la vista."""
         self._load_data()

@@ -56,6 +56,36 @@ class PolizaController:
             return {"ok": False, "error": str(e)}
 
     @staticmethod
+    def get_participaciones_by_asegurado_ids(ids_asegurado: list[int]) -> dict:
+        try:
+            return {
+                "ok": True,
+                "data": PolizaService.get_participaciones_by_asegurado_ids(ids_asegurado),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def get_participantes_by_poliza_ids(ids_poliza: list[int]) -> dict:
+        try:
+            return {
+                "ok": True,
+                "data": PolizaService.get_participantes_by_poliza_ids(ids_poliza),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def get_polizas_by_asegurado_ids(ids_asegurado: list[int]) -> dict:
+        try:
+            return {
+                "ok": True,
+                "data": PolizaService.get_by_asegurado_ids(ids_asegurado),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
     def get_available_polizas_for_participante(id_asegurado: int) -> dict:
         try:
             return {

@@ -92,6 +92,18 @@ class PolizaService:
         return PolizaRepository.get_participaciones_by_asegurado(id_asegurado)
 
     @staticmethod
+    def get_participaciones_by_asegurado_ids(ids_asegurado: list[int]) -> list[dict]:
+        return PolizaRepository.get_participaciones_by_asegurado_ids(ids_asegurado)
+
+    @staticmethod
+    def get_participantes_by_poliza_ids(ids_poliza: list[int]) -> list[dict]:
+        return PolizaRepository.get_participantes_by_poliza_ids(ids_poliza)
+
+    @staticmethod
+    def get_by_asegurado_ids(ids_asegurado: list[int]) -> list[Poliza]:
+        return PolizaRepository.get_by_asegurado_ids(ids_asegurado)
+
+    @staticmethod
     def get_available_for_participante(id_asegurado: int) -> list[Poliza]:
         return PolizaRepository.get_available_for_participante(id_asegurado)
 

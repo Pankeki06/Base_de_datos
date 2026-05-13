@@ -105,6 +105,16 @@ class PolizaRepository:
             return list(session.exec(statement).all())
 
     @staticmethod
+    def get_by_asegurado_ids(ids_asegurado: list[int]) -> list[Poliza]:
+        with create_session() as session:
+            if not ids_asegurado:
+                return []
+            statement = select(Poliza).where(
+                Poliza.id_asegurado.in_(ids_asegurado), Poliza.deleted_at == None
+            )
+            return list(session.exec(statement).all())
+
+    @staticmethod
     def get_active_for_asegurado_producto(id_asegurado: int, id_producto: int) -> Poliza | None:
         with create_session() as session:
             statement = (
@@ -217,6 +227,107 @@ class PolizaRepository:
                     })
 
             return participaciones
+
+    @staticmethod
+    def get_participaciones_by_asegurado_ids(ids_asegurado: list[int]) -> list[dict]:
+        with create_session() as session:
+            if not ids_asegurado:
+                return []
+            participaciones = []
+            # Como titular
+            polizas_como_titular = session.exec(
+                select(Poliza).where(
+                    Poliza.id_asegurado.in_(ids_asegurado),
+                    Poliza.deleted_at == None,
+                )
+            ).all()
+            for p in polizas_como_titular:
+                participaciones.append({
+                    "id_asegurado": p.id_asegurado,
+                    "id_poliza": p.id_poliza,
+                    "numero_poliza": p.numero_poliza,
+                    "estatus_poliza": p.estatus,
+                    "tipo_asegurado": "titular",
+                    "parentesco": "titular",
+                })
+            # Como dependiente
+            dependientes = session.exec(
+                select(Asegurado).where(
+                    Asegurado.id_asegurado.in_(ids_asegurado),
+                    Asegurado.id_poliza != None,
+                    Asegurado.deleted_at == None,
+                )
+            ).all()
+            poliza_ids = [d.id_poliza for d in dependientes if d.id_poliza]
+            if poliza_ids:
+                polizas = session.exec(
+                    select(Poliza).where(Poliza.id_poliza.in_(poliza_ids), Poliza.deleted_at == None)
+                ).all()
+                polizas_map = {p.id_poliza: p for p in polizas}
+                for d in dependientes:
+                    poliza = polizas_map.get(d.id_poliza)
+                    if poliza:
+                        participaciones.append({
+                            "id_asegurado": d.id_asegurado,
+                            "id_poliza": poliza.id_poliza,
+                            "numero_poliza": poliza.numero_poliza,
+                            "estatus_poliza": poliza.estatus,
+                            "tipo_asegurado": d.tipo_asegurado,
+                            "parentesco": d.tipo_asegurado,
+                        })
+            return participaciones
+
+    @staticmethod
+    def get_participantes_by_poliza_ids(ids_poliza: list[int]) -> list[dict]:
+        with create_session() as session:
+            if not ids_poliza:
+                return []
+            polizas = session.exec(
+                select(Poliza).where(Poliza.id_poliza.in_(ids_poliza), Poliza.deleted_at == None)
+            ).all()
+            asegurado_ids = [p.id_asegurado for p in polizas]
+            asegurados = session.exec(
+                select(Asegurado).where(Asegurado.id_asegurado.in_(asegurado_ids), Asegurado.deleted_at == None)
+            ).all()
+            asegurados_map = {a.id_asegurado: a for a in asegurados}
+
+            dependientes = session.exec(
+                select(Asegurado).where(
+                    Asegurado.id_poliza.in_(ids_poliza),
+                    Asegurado.tipo_asegurado != "titular",
+                    Asegurado.deleted_at == None,
+                )
+            ).all()
+
+            resultados = []
+            for p in polizas:
+                asegurado = asegurados_map.get(p.id_asegurado)
+                if asegurado:
+                    nombre = f"{asegurado.nombre} {asegurado.apellido_paterno} {asegurado.apellido_materno}".strip()
+                    resultados.append({
+                        "id_poliza": p.id_poliza,
+                        "id_asegurado": asegurado.id_asegurado,
+                        "tipo_asegurado": "titular",
+                        "parentesco": "titular",
+                        "nombre_completo": nombre,
+                        "rfc": asegurado.rfc,
+                        "correo": asegurado.correo,
+                        "celular": asegurado.celular,
+                    })
+                for d in dependientes:
+                    if d.id_poliza == p.id_poliza:
+                        nombre = f"{d.nombre} {d.apellido_paterno} {d.apellido_materno}".strip()
+                        resultados.append({
+                            "id_poliza": p.id_poliza,
+                            "id_asegurado": d.id_asegurado,
+                            "tipo_asegurado": d.tipo_asegurado,
+                            "parentesco": d.tipo_asegurado,
+                            "nombre_completo": nombre,
+                            "rfc": d.rfc,
+                            "correo": d.correo,
+                            "celular": d.celular,
+                        })
+            return resultados
 
     @staticmethod
     def get_available_for_participante(id_asegurado: int) -> list[Poliza]:

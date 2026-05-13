@@ -8,6 +8,7 @@ from views.theme import ACCENT, BORDER, CARD, CARD_ALT, MUTED, TEXT
 from views.ui_controls import styled_dropdown, styled_text_field
 
 
+# ── Campo de texto estilizado para asignaciones ──────────────────────────────
 def assignment_field(
     label: str,
     value: str = "",
@@ -30,6 +31,7 @@ def assignment_field(
     return styled_text_field(label=label, value=value, **kwargs)
 
 
+# ── Dropdown estilizado para asignaciones ────────────────────────────────────
 def assignment_dropdown(
     label: str,
     options: list[ft.dropdown.Option],
@@ -38,6 +40,7 @@ def assignment_dropdown(
     return styled_dropdown(label=label, value=value, options=options)
 
 
+# ── Contenedor de sección con título ─────────────────────────────────────────
 def section_card(title: str, body: list[ft.Control]) -> ft.Container:
     return ft.Container(
         content=ft.Column(
@@ -55,6 +58,7 @@ def section_card(title: str, body: list[ft.Control]) -> ft.Container:
     )
 
 
+# ── Tarjeta de panel interno ─────────────────────────────────────────────────
 def panel_card(title: str, body: list[ft.Control], col: int | dict | None = None) -> ft.Container:
     kwargs = {}
     if col is not None:
@@ -75,6 +79,7 @@ def panel_card(title: str, body: list[ft.Control], col: int | dict | None = None
     )
 
 
+# ── Nota informativa con fondo sutil ─────────────────────────────────────────
 def info_note(message: str) -> ft.Container:
     return ft.Container(
         content=ft.Text(message, size=12, color=MUTED),

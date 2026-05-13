@@ -43,6 +43,24 @@ class AseguradoController:
             return {"ok": False, "error": str(e)}
 
     @staticmethod
+    def get_asegurados_by_agente_page(id_agente: int, page: int = 1, page_size: int = 20) -> dict:
+        try:
+            asegurados = AseguradoService.get_by_agente_page(id_agente, page, page_size)
+            total = AseguradoService.count_by_agente(id_agente)
+            return {"ok": True, "data": asegurados, "total": total}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def get_titulares_by_agente_page(id_agente: int, page: int = 1, page_size: int = 20) -> dict:
+        try:
+            asegurados = AseguradoService.get_titulares_by_agente_page(id_agente, page, page_size)
+            total = AseguradoService.count_titulares_by_agente(id_agente)
+            return {"ok": True, "data": asegurados, "total": total}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
     def update_asegurado(id_asegurado: int, data: dict) -> dict:
         try:
             entity = AseguradoService.update(id_asegurado, data)

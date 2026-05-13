@@ -53,6 +53,7 @@ _PARENTESCO_OPCIONES = [
 
 
 class AsignacionesAseguradoView:
+    # ── Constructor y estado inicial ───────────────────────────────────────────
     def __init__(
         self,
         page: ft.Page,
@@ -150,6 +151,7 @@ class AsignacionesAseguradoView:
             reverse=True,
         )
 
+    # ── Carga de datos ─────────────────────────────────────────────────────────
     def _load_data(self) -> None:
         asegurado_res = AseguradoController.get_asegurado_by_id(self._id)
         if not asegurado_res["ok"]:
@@ -200,6 +202,7 @@ class AsignacionesAseguradoView:
                 participantes_res.get("data", []) if participantes_res["ok"] else []
             )
 
+    # ── Build principal ────────────────────────────────────────────────────────
     def build(self) -> ft.Control:
         self._load_data()
         if self._asegurado is None:
@@ -217,6 +220,7 @@ class AsignacionesAseguradoView:
             bgcolor=_BG,
         )
 
+    # ── Panel principal (topbar + tabs) ────────────────────────────────────────
     def _build_main(self) -> ft.Container:
         asegurado = self._asegurado
         nombre = f"{asegurado.nombre} {asegurado.apellido_paterno} {asegurado.apellido_materno}".strip()
@@ -316,6 +320,7 @@ class AsignacionesAseguradoView:
             bgcolor=_BG,
         )
 
+    # ── Tarjeta de resumen del asegurado ───────────────────────────────────────
     def _build_summary_card(self) -> ft.Container:
         asegurado = self._asegurado
         agente_label = (
@@ -341,6 +346,7 @@ class AsignacionesAseguradoView:
             ],
         )
 
+    # ── Sección: Pólizas (crear / vincular / listado) ──────────────────────────
     def _build_polizas_section(self) -> ft.Container:
         default_producto_value = (
             str(self._productos_activos[0].id_producto)
@@ -1044,6 +1050,7 @@ class AsignacionesAseguradoView:
             ],
         )
 
+    # ── Sección: Beneficiarios ─────────────────────────────────────────────────
     def _build_beneficiarios_section(self) -> ft.Container:
         legacy_beneficiarios = self._beneficiarios_for_poliza(None)
         if not self._polizas:
@@ -1385,6 +1392,7 @@ class AsignacionesAseguradoView:
             )
         return rows
 
+    # ── Modal: editar beneficiario ─────────────────────────────────────────────
     def _open_edit_beneficiario_modal(self, beneficiario, *, focus_poliza_id: int | None = None) -> None:
         poliza_dd = _dropdown(
             "Poliza vinculada",
@@ -1462,6 +1470,7 @@ class AsignacionesAseguradoView:
         )
         self._show_dialog(dlg)
 
+    # ── Modal: confirmar eliminación de beneficiario ───────────────────────────
     def _confirm_delete_beneficiario(self, id_beneficiario: int, *, focus_poliza_id: int | None = None) -> None:
         btn_delete = ft.FilledButton(
             "Eliminar",
@@ -1489,6 +1498,7 @@ class AsignacionesAseguradoView:
         )
         self._show_dialog(dlg)
 
+    # ── Sección: Beneficios ────────────────────────────────────────────────────
     def _build_beneficios_section(self) -> ft.Container:
         if not self._polizas:
             return _section(
@@ -1956,6 +1966,7 @@ class AsignacionesAseguradoView:
             border=ft.Border.all(1, _BORDER),
         )
 
+    # ── Modal: editar beneficio ────────────────────────────────────────────────
     def _open_edit_beneficio_modal(self, id_poliza: int, beneficio, participantes: list[dict]) -> None:
         override_f = _field(
             "Override de monto (opcional)",
@@ -2046,6 +2057,7 @@ class AsignacionesAseguradoView:
         if prima_final > 0:
             PolizaController.update_poliza(id_poliza, {"prima_mensual": prima_final})
 
+    # ── Modal: confirmar eliminación de beneficio ──────────────────────────────
     def _confirm_delete_beneficio(self, id_beneficio: int, id_poliza: int | None = None) -> None:
         btn_delete = ft.FilledButton(
             "Eliminar",

@@ -7,6 +7,7 @@ import flet as ft
 from views.theme import ACCENT, BORDER, CARD, CARD_ALT, MUTED, SIDEBAR, TEXT
 
 
+# ── Campo de texto con estilo del tema ───────────────────────────────────────
 def styled_text_field(
     label: str,
     value: str = "",
@@ -25,6 +26,7 @@ def styled_text_field(
     return ft.TextField(label=label, value=value, **kwargs)
 
 
+# ── Dropdown con estilo del tema ─────────────────────────────────────────────
 def styled_dropdown(
     label: str,
     options: list[ft.dropdown.Option],
@@ -40,6 +42,7 @@ def styled_dropdown(
     return ft.Dropdown(label=label, value=value, options=options, **kwargs)
 
 
+# ── Badge redondeado (pill) ──────────────────────────────────────────────────
 def pill(label: str, color: str, bg: str) -> ft.Container:
     return ft.Container(
         content=ft.Text(label, size=11, color=color, weight=ft.FontWeight.W_500),
@@ -50,6 +53,7 @@ def pill(label: str, color: str, bg: str) -> ft.Container:
     )
 
 
+# ── Sidebar de navegación lateral ────────────────────────────────────────────
 def app_sidebar(navigate, ruta_activa: str = "/dashboard") -> ft.Container:
     from services.session_manager import cerrar_sesion, obtener_agente
 
@@ -116,6 +120,7 @@ def app_sidebar(navigate, ruta_activa: str = "/dashboard") -> ft.Container:
     )
 
 
+# ── Diálogo modal reutilizable ───────────────────────────────────────────────
 def modal_dialog(
     title: str,
     content: ft.Control,
@@ -140,6 +145,7 @@ def modal_dialog(
     )
 
 
+# ── Estado vacío reutilizable ────────────────────────────────────────────────
 def empty_state(
     icon,
     title: str,

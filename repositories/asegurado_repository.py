@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlmodel import select, or_
+from sqlmodel import func, or_, select
 
 from config.database import create_session
 from models.asegurado import Asegurado
@@ -125,7 +125,7 @@ class AseguradoRepository:
                 for p in polizas:
                     p.deleted_at = now
                     session.add(p)
-                # Desvincular dependientes (resetear id_poliza y tipo_asegurado)
+                # Cascade soft-delete a dependientes de las pólizas
                 dependientes = session.exec(
                     select(Asegurado).where(
                         Asegurado.id_poliza.in_(poliza_ids),
@@ -133,10 +133,79 @@ class AseguradoRepository:
                     )
                 ).all()
                 for d in dependientes:
-                    d.id_poliza = None
-                    d.tipo_asegurado = "titular"
+                    d.deleted_at = now
                     d.updated_at = now
                     session.add(d)
             
             session.commit()
             return True
+
+    @staticmethod
+    def count_by_agente(id_agente: int) -> int:
+        with create_session() as session:
+            statement = (
+                select(func.count())
+                .select_from(Asegurado)
+                .where(
+                    Asegurado.id_agente_responsable == id_agente,
+                    Asegurado.deleted_at == None,
+                )
+            )
+            total = session.exec(statement).one()
+            return int(total or 0)
+
+    @staticmethod
+    def get_by_agente_page(id_agente: int, page: int = 1, page_size: int = 20) -> list[Asegurado]:
+        with create_session() as session:
+            offset = (page - 1) * page_size
+            statement = (
+                select(Asegurado)
+                .where(
+                    Asegurado.id_agente_responsable == id_agente,
+                    Asegurado.deleted_at == None,
+                )
+                .order_by(Asegurado.id_asegurado.desc())
+                .offset(offset)
+                .limit(page_size)
+            )
+            return list(session.exec(statement).all())
+
+    @staticmethod
+    def count_titulares_by_agente(id_agente: int) -> int:
+        with create_session() as session:
+            statement = (
+                select(func.count())
+                .select_from(Asegurado)
+                .where(
+                    Asegurado.id_agente_responsable == id_agente,
+                    Asegurado.deleted_at == None,
+                )
+                .where(
+                    Asegurado.id_asegurado.in_(
+                        select(Poliza.id_asegurado).where(Poliza.deleted_at == None)
+                    )
+                )
+            )
+            total = session.exec(statement).one()
+            return int(total or 0)
+
+    @staticmethod
+    def get_titulares_by_agente_page(id_agente: int, page: int = 1, page_size: int = 20) -> list[Asegurado]:
+        with create_session() as session:
+            offset = (page - 1) * page_size
+            statement = (
+                select(Asegurado)
+                .where(
+                    Asegurado.id_agente_responsable == id_agente,
+                    Asegurado.deleted_at == None,
+                )
+                .where(
+                    Asegurado.id_asegurado.in_(
+                        select(Poliza.id_asegurado).where(Poliza.deleted_at == None)
+                    )
+                )
+                .order_by(Asegurado.id_asegurado.desc())
+                .offset(offset)
+                .limit(page_size)
+            )
+            return list(session.exec(statement).all())

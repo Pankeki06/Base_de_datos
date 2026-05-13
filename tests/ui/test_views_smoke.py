@@ -410,7 +410,7 @@ def test_lista_asegurados_row_polizas_muestra_resumen_y_afiliados_sin_avatar(mon
     assert "2 póliza(s) · 4 persona(s)" in texts
     assert "POL-VIDA-01" in texts
     assert "POL-GMM-02" in texts
-    assert "Roberto Martinez" in texts
+    assert "Roberto Martinez Soto" in texts
     assert "Patricia V." in texts
     assert "Emilio M." in texts
     assert ft.Icons.PERSON_ROUNDED not in icons

@@ -20,6 +20,7 @@ from views.ui_controls import modal_dialog as _modal_dialog
 
 
 class ListaAgentesView:
+    # ── Constructor y estado de paginación ─────────────────────────────────────
     def __init__(self, page: ft.Page, navigate) -> None:
         self._page = page
         self._navigate = navigate
@@ -46,6 +47,7 @@ class ListaAgentesView:
             expand=True,
         )
 
+    # ── Build principal ────────────────────────────────────────────────────────
     def build(self) -> ft.Control:
         self._load_agentes()
         sidebar = _app_sidebar(self._navigate, "/agentes")
@@ -55,6 +57,7 @@ class ListaAgentesView:
             bgcolor=_BG,
         )
 
+    # ── Panel principal (topbar + body) ────────────────────────────────────────
     def _build_main(self) -> ft.Container:
         agente_actual = obtener_agente()
         rol_actual = str(getattr(agente_actual, "rol", "")).strip().lower()
@@ -196,6 +199,7 @@ class ListaAgentesView:
         self._search_field.value = ""
         self._refresh()
 
+    # ── Carga de agentes desde el backend ──────────────────────────────────────
     def _load_agentes(self) -> None:
         if self._modo == "desactivados":
             res = AgenteController.get_agentes_desactivados_page(
@@ -224,6 +228,7 @@ class ListaAgentesView:
             self._current_page = self._total_pages
             self._load_agentes()
 
+    # ── Refresco de tabla y paginación ─────────────────────────────────────────
     def _refresh(self) -> None:
         agente_actual = obtener_agente()
         is_admin = str(getattr(agente_actual, "rol", "")).strip().lower() == "admin"
@@ -248,6 +253,7 @@ class ListaAgentesView:
             )
         self._page.update()
 
+    # ── Actualización de controles de paginación ───────────────────────────────
     def _update_pagination_state(self) -> None:
         inicio = 0 if self._total_items == 0 else ((self._current_page - 1) * self._page_size) + 1
         fin = min(self._current_page * self._page_size, self._total_items)
@@ -281,6 +287,7 @@ class ListaAgentesView:
         self._current_page += 1
         self._refresh()
 
+    # ── Renderizado de filas de la tabla de agentes ────────────────────────────
     def _build_rows(self, is_admin: bool) -> list[ft.Control]:
         modo_desact = self._modo == "desactivados"
         if not self._agentes:
@@ -376,6 +383,7 @@ class ListaAgentesView:
     def _open_edit_modal(self, agente) -> None:
         self._open_form_modal(title="Editar agente", agente=agente)
 
+    # ── Modal: formulario crear/editar agente ──────────────────────────────────
     def _open_form_modal(self, title: str, agente=None) -> None:
         tf_base = {
             "border_color": _BORDER,
@@ -503,6 +511,7 @@ class ListaAgentesView:
         )
         self._page.show_dialog(dialog)
 
+    # ── Modal: confirmar desactivación de agente ───────────────────────────────
     def _confirm_deactivate(self, agente) -> None:
         def _deactivate(_event) -> None:
             res = AgenteController.delete_agente(agente.id_agente)
@@ -536,6 +545,7 @@ class ListaAgentesView:
         )
         self._page.show_dialog(dialog)
 
+    # ── Modal: confirmar reactivación de agente ────────────────────────────────
     def _confirm_reactivate(self, agente) -> None:
         def _reactivate(_event) -> None:
             res = AgenteController.reactivate_agente(agente.id_agente)

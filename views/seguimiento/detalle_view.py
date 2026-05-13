@@ -27,6 +27,7 @@ from views.ui_controls import app_sidebar, modal_dialog, pill as _pill, styled_d
 class DetalleSeguimientoView:
     """Detalle de un folio de seguimiento con historial de contactos."""
 
+    # ── Constructor ────────────────────────────────────────────────────────────
     def __init__(self, page: ft.Page, navigate, id_seguimiento: int) -> None:
         self._page = page
         self._navigate = navigate
@@ -38,6 +39,7 @@ class DetalleSeguimientoView:
         self._agente = None
         self._contactos_col_ref = ft.Ref[ft.Column]()
 
+    # ── Carga de datos (seguimiento + contactos + asegurado + agente) ──────────
     def _load_data(self) -> None:
         """Carga el seguimiento con sus contactos."""
         # Cargar seguimiento con contactos
@@ -62,6 +64,7 @@ class DetalleSeguimientoView:
                 if agente_res["ok"]:
                     self._agente = agente_res["data"]
 
+    # ── Item de contacto para la línea temporal ────────────────────────────────
     def _build_contacto_item(self, contacto) -> ft.Container:
         """Construye un item de contacto para el historial."""
         # Iconos según tipo
@@ -184,6 +187,7 @@ class DetalleSeguimientoView:
             padding=ft.Padding.symmetric(vertical=12),
         )
 
+    # ── Estado vacío: sin contactos ────────────────────────────────────────────
     def _build_empty_contactos(self) -> ft.Container:
         """Estado vacío cuando no hay contactos."""
         return ft.Container(
@@ -210,6 +214,7 @@ class DetalleSeguimientoView:
             alignment=ft.Alignment.CENTER,
         )
 
+    # ── Modal: agregar contacto al folio ───────────────────────────────────────
     def _open_agregar_contacto_modal(self) -> None:
         """Abre modal para agregar un contacto al folio."""
         tipo_dd = _dd("Tipo de contacto", [
@@ -301,6 +306,7 @@ class DetalleSeguimientoView:
         """Recarga la vista."""
         self._navigate("/seguimiento/detalle", id_seguimiento=self._id_seguimiento)
 
+    # ── Encabezado con info del folio ──────────────────────────────────────────
     def _build_header(self) -> ft.Container:
         """Construye el encabezado con info del folio."""
         folio = ""
@@ -388,6 +394,7 @@ class DetalleSeguimientoView:
             border=ft.Border.only(bottom=ft.BorderSide(1, _BORDER)),
         )
 
+    # ── Build de la vista completa ─────────────────────────────────────────────
     def build(self) -> ft.Control:
         """Construye y retorna la vista."""
         self._load_data()

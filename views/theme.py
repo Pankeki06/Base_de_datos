@@ -1,5 +1,6 @@
 """Shared UI theme values for Flet views."""
 
+# ── Paleta de colores principales ────────────────────────────────────────────
 BG = "#F5F7F4"
 SIDEBAR = "#E7EFE9"
 CARD = "#FFFFFF"

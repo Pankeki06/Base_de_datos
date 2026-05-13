@@ -1,4 +1,4 @@
-"""Dashboard principal."""
+"""Dashboard principal con sidebar, resumen de métricas y tarjetas de asegurados."""
 
 from __future__ import annotations
 from datetime import date
@@ -24,8 +24,9 @@ from views.theme import (
 from views.ui_controls import app_sidebar as _app_sidebar, pill as _pill
 
 
-# ─── Sidebar icon-only ───────────────────────────────────────────────────────
+# ─── Sidebar de navegación lateral (icon-only) ──────────────────────────────
 def _sidebar(navigate, ruta_activa: str = "/dashboard") -> ft.Container:
+    """Renderiza el sidebar lateral con las opciones de navegación."""
     return _app_sidebar(navigate, ruta_activa)
 def _poliza_pills(
     polizas: list,

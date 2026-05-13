@@ -18,6 +18,7 @@ from views.ui_controls import app_sidebar, modal_dialog, styled_dropdown as _dro
 
 
 class FormularioAseguradoView:
+    # ── Constructor ────────────────────────────────────────────────────────────
     def __init__(self, page: ft.Page, navigate, asegurado=None) -> None:
         self._page = page
         self._navigate = navigate
@@ -25,6 +26,7 @@ class FormularioAseguradoView:
         self._editing = asegurado is not None
         self._errors: dict[str, ft.Text] = {}
 
+    # ── Build del layout con sidebar ───────────────────────────────────────────
     def build(self) -> ft.Control:
         from services.session_manager import obtener_agente
         agente = obtener_agente()
@@ -37,6 +39,7 @@ class FormularioAseguradoView:
             bgcolor=_BG,
         )
 
+    # ── Helpers de validación visual ───────────────────────────────────────────
     def _err(self, key: str) -> ft.Text:
         t = ft.Text("", color=_ERROR, size=11, visible=False)
         self._errors[key] = t
@@ -53,6 +56,7 @@ class FormularioAseguradoView:
             t.value = ""
             t.visible = False
 
+    # ── Opciones post-guardado (nuevo asegurado) ───────────────────────────────
     def _show_post_save_options(self, id_asegurado: int) -> None:
         def _go_asignaciones(e):
             self._page.pop_dialog()
@@ -90,6 +94,7 @@ class FormularioAseguradoView:
         )
         self._page.show_dialog(dlg)
 
+    # ── Modal: vincular a póliza existente ─────────────────────────────────────
     def _open_link_to_existing_poliza_modal(self, id_asegurado: int) -> None:
         result = PolizaController.get_available_polizas_for_participante(id_asegurado)
         if not result["ok"]:
@@ -195,6 +200,7 @@ class FormularioAseguradoView:
         )
         self._page.show_dialog(dlg)
 
+    # ── Formulario principal (datos personales + dirección) ──────────────────────
     def _build_form(self) -> ft.Container:
         a = self._asegurado
         title = "Editar asegurado" if self._editing else "Nuevo asegurado"

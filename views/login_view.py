@@ -18,6 +18,7 @@ from views.ui_controls import styled_text_field
 
 
 class LoginView:
+    # ── Constructor ────────────────────────────────────────────────────────────
     def __init__(self, page: ft.Page, navigate) -> None:
         self._page = page
         self._navigate = navigate
@@ -30,6 +31,7 @@ class LoginView:
             return
         control.focus()
 
+    # ── Build de la interfaz de login ──────────────────────────────────────────
     def build(self) -> ft.Control:
         clave_field = styled_text_field(
             label="IDENTIFICADOR",
@@ -117,6 +119,7 @@ class LoginView:
             padding=ft.Padding.symmetric(horizontal=24, vertical=24),
         )
 
+    # ── Lógica de autenticación ────────────────────────────────────────────────
     def _handle_login(
         self,
         clave_field: ft.TextField,
@@ -151,6 +154,7 @@ class LoginView:
             self._page.update()
 
 
+# ── Factory legacy ─────────────────────────────────────────────────────────
 def create_login_view(page: ft.Page, login_callback):
     """Compatibilidad para pruebas UI legacy."""
     validation_text = ft.Text("")

@@ -624,3 +624,19 @@ VALUES
 -- JOIN agente ag      ON s.id_agente       = ag.id_agente
 -- WHERE s.folio = 'SEG-2026-001'
 -- ORDER BY sc.fecha_hora;
+
+
+-- ============================================================
+--  ÍNDICES DE RENDIMIENTO (optimización listado asegurados)
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_asegurado_agente_deleted
+    ON asegurado(id_agente_responsable, deleted_at);
+
+CREATE INDEX IF NOT EXISTS idx_asegurado_poliza_tipo
+    ON asegurado(id_poliza, tipo_asegurado);
+
+CREATE INDEX IF NOT EXISTS idx_poliza_asegurado_deleted
+    ON poliza(id_asegurado, deleted_at);
+
+CREATE INDEX IF NOT EXISTS idx_beneficiario_asegurado_deleted
+    ON beneficiario(id_asegurado, deleted_at);

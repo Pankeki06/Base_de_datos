@@ -46,6 +46,22 @@ class AseguradoService:
         return AseguradoRepository.get_by_agente(id_agente)
 
     @staticmethod
+    def get_by_agente_page(id_agente: int, page: int = 1, page_size: int = 20) -> list[Asegurado]:
+        return AseguradoRepository.get_by_agente_page(id_agente, page, page_size)
+
+    @staticmethod
+    def count_by_agente(id_agente: int) -> int:
+        return AseguradoRepository.count_by_agente(id_agente)
+
+    @staticmethod
+    def get_titulares_by_agente_page(id_agente: int, page: int = 1, page_size: int = 20) -> list[Asegurado]:
+        return AseguradoRepository.get_titulares_by_agente_page(id_agente, page, page_size)
+
+    @staticmethod
+    def count_titulares_by_agente(id_agente: int) -> int:
+        return AseguradoRepository.count_titulares_by_agente(id_agente)
+
+    @staticmethod
     def update(id_asegurado: int, data: dict) -> Asegurado | None:
         if "correo" in data:
             validar_correo(data.get("correo"))
